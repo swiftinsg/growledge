@@ -682,11 +682,12 @@ struct Game: View {
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded { SoundPlayer.pop() })
-
+                Spacer()
+                    .frame(height: 2)
                 NavigationLink {
                     SellScreen()
                 } label: {
-                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 120, height: 46)
+                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 120, height:   46)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded { SoundPlayer.pop() })
