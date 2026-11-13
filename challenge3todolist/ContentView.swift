@@ -9,7 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var reminders: [Reminder] = []
     @State private var showingAddSheet = false
     
@@ -81,7 +80,7 @@ struct ContentView: View {
             .navigationTitle("Reminders")
             // Opens the Add Reminder form when '+' is tapped
             .sheet(isPresented: $showingAddSheet) {
-                ContentView { newReminder in
+                AddReminderView { newReminder in
                     reminders.append(newReminder)
                 }
             }
@@ -89,8 +88,54 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Add Reminder Sheet View
+struct AddReminderView: View {
+    @Environment(\.dismiss) private var dismiss
+    var onSave: (Reminder) -> Void
+    
+    @State private var subject = ""
+    @State private var title = ""
+    @State private var dueDate = Date()
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Details") {
+                    TextField("Subject (e.g. Math, Work)", text: $subject)
+                    TextField("Task Title", text: $title)
+                }
+                
+                Section("Due Date") {
+                    DatePicker("Date & Time", selection: $dueDate)
+                }
+            }
+            .navigationTitle("New Reminder")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let newReminder = Reminder(
+                            title: title,
+                            dueDate: dueDate,
+                            subject: subject,
+                            isCompleted: false
+                        )
+                        onSave(newReminder)
+                        dismiss()
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
+}
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
