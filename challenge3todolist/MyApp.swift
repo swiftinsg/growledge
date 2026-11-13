@@ -1,10 +1,9 @@
 import SwiftUI
 
-@main
-struct AnotherCloudKitDemoApp: App {
+@main struct MyApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            StudyView()
         }
     }
 }
