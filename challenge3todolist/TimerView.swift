@@ -11,7 +11,7 @@ struct TimerView: View {
     private enum Phase {
         case work, rest
 
-        var title: String { self == .work ? "Folus" : "Break" }
+        var title: String { self == .work ? "Focus" : "Break" }
         var tint: Color { self == .work ? .orange : .green }
     }
 

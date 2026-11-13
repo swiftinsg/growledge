@@ -876,7 +876,7 @@ struct InventoryBar: View {
             }
         }
         .padding(.vertical, 8)
-        .frame(width: 80)
+        .frame(width: 80, height: 400)
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.card.opacity(0.92)))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.panelBorder, lineWidth: 1))
     }
@@ -996,11 +996,7 @@ struct BuyScreen: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         // The question when you arrive
-        .confirmationDialog("What would you like to do?", isPresented: $showAsk, titleVisibility: .visible) {
-            Button("Buy Seeds") { type = .seeds }
-            Button("Buy Gears") { type = .gears }
-            Button("Back to garden", role: .cancel) { dismiss() }
-        }
+        
     }
 }
 
@@ -1157,10 +1153,7 @@ struct SellScreen: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         // The question when you arrive
-        .confirmationDialog("What would you like to do?", isPresented: $showAsk, titleVisibility: .visible) {
-            Button("Sell my stuff") { }
-            Button("Back to garden", role: .cancel) { dismiss() }
-        }
+        
     }
 
     func sellItem(_ id: String) {

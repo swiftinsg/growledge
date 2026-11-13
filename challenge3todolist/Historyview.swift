@@ -61,8 +61,7 @@ struct HistoryView: View {
 
         NavigationStack {
             ZStack {
-                // Same garden background as the Home tab
-                AppBackground()
+                
 
                 ScrollView {
                     VStack(spacing: 16) {
