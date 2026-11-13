@@ -1,33 +1,21 @@
 import Foundation
 
-/// Rules for the coins a user earns when ending a study session.
+/// Rules for the coins ("points") the user earns.
 ///
-/// - Nothing is earned unless the user studied for at least `minimumStudyTime`.
-/// - Study time earns `coinsPerStudyMinute` per full minute, capped at `maxStudyCoins`.
-/// - Each completed task earns `bonusPerTask`, capped at `maxTaskBonus`.
+/// - Studying earns `coinsPerHour` for every hour studied (counted per full
+///   minute, so 30 minutes earns half). It is paid when the session ends.
+/// - Finishing a task earns `bonusPerTask`, paid straight away by
+///   `TodoStore.toggleCompleted` (once per task).
 struct CoinReward {
-    static let minimumStudyTime: TimeInterval = 60 * 60   // 1 hour: lower this to reward shorter sessions
-    static let coinsPerStudyMinute = 1
-    static let maxStudyCoins = 180      // reached after 3 hours of study
-    static let bonusPerTask = 15
-    static let maxTaskBonus = 60        // reached after 4 completed tasks
+    static let coinsPerHour = 10_000
+    static let bonusPerTask = 15_000
 
+    /// Seconds studied in the session that just ended.
     let studiedSeconds: TimeInterval
-    let completedTasks: Int
 
-    /// True once the user has studied long enough to earn anything.
-    var meetsMinimum: Bool { studiedSeconds >= Self.minimumStudyTime }
+    /// Whole minutes studied.
+    var minutes: Int { Int(studiedSeconds / 60) }
 
-    var studyCoins: Int {
-        guard meetsMinimum else { return 0 }
-        let minutes = Int(studiedSeconds / 60)
-        return min(minutes * Self.coinsPerStudyMinute, Self.maxStudyCoins)
-    }
-
-    var taskBonusCoins: Int {
-        guard meetsMinimum else { return 0 }
-        return min(max(completedTasks, 0) * Self.bonusPerTask, Self.maxTaskBonus)
-    }
-
-    var total: Int { studyCoins + taskBonusCoins }
+    /// Coins for the study time: 10,000 per hour.
+    var total: Int { minutes * Self.coinsPerHour / 60 }
 }

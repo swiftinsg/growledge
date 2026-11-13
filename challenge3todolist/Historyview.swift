@@ -2,7 +2,8 @@ import SwiftUI
 import Charts
 
 /// Weekly study chart: days of the week across the top, the 24 hours of the
-/// day down the side (midnight at the top), and shaded bars wherever you studied.
+/// day down the side (midnight at the top), and bars wherever you studied.
+/// Each bar is coloured with the colour of the subject that was studied.
 struct HistoryView: View {
     @ObservedObject private var log: StudyLogStore
     @State private var weekOffset = 0   // 0 = this week, -1 = last week, ...
@@ -16,11 +17,7 @@ struct HistoryView: View {
     private let hourLabels = Array(stride(from: 0.0, through: 24.0, by: 3.0))
 
     /// Weeks start on Monday.
-    private var calendar: Calendar {
-        var c = Calendar.current
-        c.firstWeekday = 2
-        return c
-    }
+    private var calendar: Calendar { .studyWeek }
 
     private var weekStart: Date {
         let thisWeek = calendar.dateInterval(of: .weekOfYear, for: .now)?.start
@@ -34,28 +31,67 @@ struct HistoryView: View {
         return "\(weekStart.formatted(format)) – \(end.formatted(format))"
     }
 
+    /// Time studied per subject (for the colour key under the chart).
+    private struct SubjectTotal: Identifiable {
+        let name: String
+        let color: Color
+        var seconds: TimeInterval
+        var id: String { name }
+    }
+
+    /// A block with several subjects shares its time equally between them.
+    private func subjectTotals(_ blocks: [StudyBlock]) -> [SubjectTotal] {
+        var totals: [String: SubjectTotal] = [:]
+        for block in blocks {
+            let subjects = block.subjects.isEmpty
+                ? [SessionSubject(name: "No subject", colorRaw: "")]
+                : block.subjects
+            let share = block.seconds / Double(subjects.count)
+            for subject in subjects {
+                totals[subject.name, default: SubjectTotal(name: subject.name, color: subject.color, seconds: 0)]
+                    .seconds += share
+            }
+        }
+        return totals.values.sorted { $0.seconds > $1.seconds }
+    }
+
     var body: some View {
         let blocks = log.blocks(weekStarting: weekStart, calendar: calendar)
         let totalSeconds = blocks.reduce(0) { $0 + $1.seconds }
 
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    weekPicker
+            ZStack {
+                // Same garden background as the Home tab
+                AppBackground()
 
-                    VStack(spacing: 2) {
-                        Text(durationText(totalSeconds))
-                            .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        Text("studied this week")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                ScrollView {
+                    VStack(spacing: 16) {
+                        weekPicker
+                            .fadeIn(order: 0)
+
+                        VStack(spacing: 2) {
+                            Text(durationText(totalSeconds))
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .contentTransition(.numericText())
+                            Text("studied this week")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .fadeIn(order: 1)
+
+                        subjectKey(subjectTotals(blocks))
+                            .fadeIn(order: 2)
+
+                        chart(blocks)
+                            .padding(16)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .padding(.horizontal)
+                            .fadeIn(order: 3)
                     }
-
-                    chart(blocks)
-                        .padding(.horizontal)
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             }
+            .tabFadeRoot()
             .navigationTitle("History")
         }
     }
@@ -73,7 +109,7 @@ struct HistoryView: View {
 
             Spacer()
             Text(weekTitle)
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
             Spacer()
 
             Button {
@@ -87,6 +123,32 @@ struct HistoryView: View {
         .padding(.horizontal, 24)
     }
 
+    /// Colour key: which colour is which subject, and how long was studied.
+    @ViewBuilder
+    private func subjectKey(_ totals: [SubjectTotal]) -> some View {
+        if !totals.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(totals) { total in
+                        HStack(spacing: 6) {
+                            Circle().fill(total.color.gradient).frame(width: 10, height: 10)
+                            Text(total.name)
+                                .font(.subheadline.weight(.semibold))
+                            Text(durationText(total.seconds))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(total.color.opacity(0.18), in: Capsule())
+                        .overlay(Capsule().stroke(total.color.opacity(0.6), lineWidth: 1))
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
     private func chart(_ blocks: [StudyBlock]) -> some View {
         // The y axis is flipped (24 - hour) so midnight sits at the top like a
         // calendar; the axis labels flip it back to real hours.
@@ -97,7 +159,8 @@ struct HistoryView: View {
                 yEnd: .value("To", 24 - block.startHour),
                 width: .ratio(0.8)
             )
-            .foregroundStyle(.orange.gradient)
+            // Coloured by subject; several subjects blend into a gradient
+            .foregroundStyle(block.fill)
             .cornerRadius(3)
         }
         .chartXScale(domain: dayNames)
@@ -153,10 +216,11 @@ struct HistoryView: View {
         return d.addingTimeInterval(hour * 3600)
     }
     let sample = [
-        StudySession(start: at(0, 9), end: at(0, 11)),
-        StudySession(start: at(0, 14.5), end: at(0, 15.25)),
-        StudySession(start: at(2, 20), end: at(2, 23.5)),
-        StudySession(start: at(4, 22), end: at(5, 1))   // crosses midnight
+        StudySession(start: at(0, 9), end: at(0, 11), subjectName: "Math", colorRaw: "blue"),
+        StudySession(start: at(0, 14.5), end: at(0, 15.25), subjectName: "Science", colorRaw: "green"),
+        StudySession(start: at(2, 20), end: at(2, 23.5), subjectName: "English", colorRaw: "pink"),
+        StudySession(start: at(4, 22), end: at(5, 1), subjectName: "Math", colorRaw: "blue")   // crosses midnight
     ]
     return HistoryView(log: StudyLogStore(previewSessions: sample))
+        .preferredColorScheme(.dark)
 }

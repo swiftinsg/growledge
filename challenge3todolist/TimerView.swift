@@ -11,7 +11,7 @@ struct TimerView: View {
     private enum Phase {
         case work, rest
 
-        var title: String { self == .work ? "Focus" : "Break" }
+        var title: String { self == .work ? "Folus" : "Break" }
         var tint: Color { self == .work ? .orange : .green }
     }
 
@@ -33,6 +33,13 @@ struct TimerView: View {
     @State private var completedStudyTime: TimeInterval = 0
     /// When the current stretch of focus time began (used for the History chart).
     @State private var segmentStart: Date?
+
+    /// The subjects being studied; History colours the session with them.
+    var subjects: [Subject] = []
+
+    /// Lets the parent step in before the first focus phase starts (e.g. to
+    /// choose tasks). It must call the closure it is given to actually start.
+    var beforeStart: (@escaping () -> Void) -> Void = { $0() }
 
     /// Called with the total seconds studied when the user taps End.
     var onEnd: (TimeInterval) -> Void = { _ in }
@@ -172,7 +179,7 @@ struct TimerView: View {
             switch state {
             case .idle:
                 circleButton("Start", foreground: .green, background: .green.opacity(0.25)) {
-                    start()
+                    beforeStart { start() }
                 }
             case .running:
                 circleButton("Pause", foreground: .orange, background: .orange.opacity(0.25)) {
@@ -254,7 +261,7 @@ struct TimerView: View {
     /// Breaks are never logged.
     private func logStudySegment() {
         guard phase == .work, let start = segmentStart else { return }
-        StudyLogStore.shared.record(start: start, end: .now)
+        StudyLogStore.shared.record(start: start, end: .now, subjects: subjects)
         segmentStart = nil
     }
 

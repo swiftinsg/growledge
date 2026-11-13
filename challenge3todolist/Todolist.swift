@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // Which creation form is currently showing
 enum AddSheet: String, Identifiable {
@@ -13,60 +14,32 @@ enum AddSheet: String, Identifiable {
     var id: String { rawValue }
 }
 
+/// The To-Do List tab: tasks grouped by subject, with a '+' button to add
+/// subjects and tasks.
 struct Todolist: View {
-    @State private var reminders: [Reminder] = []
-    @State private var subjects: [Subject] = []
+    @ObservedObject private var store = TodoStore.shared
     @State private var showingAddMenu = false
     @State private var activeSheet: AddSheet?
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
+                AppBackground()
 
-                List {
-                    ForEach($reminders) { $reminder in
-                        HStack(alignment: .top, spacing: 12) {
-                            // Completion Circle
-                            Button {
-                                reminder.isCompleted.toggle()
-                            } label: {
-                                Image(systemName: reminder.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .font(.title2)
-                                    .foregroundStyle(reminder.isCompleted ? reminder.subject.color.color : .gray)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 2)
+                // Tasks are organised automatically: one section per subject
+                // (named once, in its heading), and finished tasks fade away.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("To-Do List")
+                        .font(.largeTitle.bold())
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .fadeIn(order: 0)
 
-                            // Subject on TOP, Task & Due Date on BOTTOM
-                            VStack(alignment: .leading, spacing: 4) {
-                                // 1. Subject on Top, colour coded
-                                Text(reminder.subject.name.uppercased())
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(reminder.subject.color.color)
-
-                                // 2. Task Title Underneath
-                                Text(reminder.title)
-                                    .font(.headline)
-                                    .strikethrough(reminder.isCompleted)
-                                    .foregroundStyle(reminder.isCompleted ? .secondary : .primary)
-
-                                // 3. Due Date at the Bottom
-                                HStack(spacing: 4) {
-                                    Image(systemName: "calendar")
-                                    Text(reminder.dueDate, style: .date)
-                                    Text("at")
-                                    Text(reminder.dueDate, style: .time)
-                                }
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .onDelete { indexSet in
-                        reminders.remove(atOffsets: indexSet)
-                    }
+                    GroupedTaskList(
+                        managesSubjects: true,
+                        emptyTitle: "No subjects yet",
+                        emptyDescription: "Tap + to create a subject, then add tasks to it."
+                    )
                 }
 
                 // Floating '+' Button at the Bottom-Right Corner
@@ -77,31 +50,36 @@ struct Todolist: View {
                         .font(.title.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 60, height: 60)
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.25), radius: 5, x: 0, y: 4)
+                        .background(
+                            LinearGradient(colors: [.blue, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Circle()
+                        )
+                        .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1.5))
+                        .shadow(color: .blue.opacity(0.5), radius: 10, x: 0, y: 4)
                 }
+                .fadeIn(order: 2)
                 .padding(.trailing, 24)
                 .padding(.bottom, 24)
                 // Popover letting the user choose what to create
                 .popover(isPresented: $showingAddMenu) {
-                    AddMenuView(hasSubjects: !subjects.isEmpty) { choice in
+                    AddMenuView(hasSubjects: !store.subjects.isEmpty) { choice in
                         showingAddMenu = false
                         activeSheet = choice
                     }
                     .presentationCompactAdaptation(.popover)
                 }
             }
-            .navigationTitle("To-Do List")
+            .tabFadeRoot()
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .subject:
                     AddSubjectView { newSubject in
-                        subjects.append(newSubject)
+                        store.subjects.append(newSubject)
                     }
                 case .task:
-                    AddTaskView(subjects: subjects) { newReminder in
-                        reminders.append(newReminder)
+                    AddTaskView(subjects: store.subjects) { newReminder in
+                        store.reminders.append(newReminder)
                     }
                 }
             }
@@ -254,5 +232,6 @@ struct AddTaskView: View {
 }
 
 #Preview {
-    Todolist() as (any View)
+    Todolist()
+        .preferredColorScheme(.dark)
 }

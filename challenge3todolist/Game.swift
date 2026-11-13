@@ -11,17 +11,20 @@ import Combine
 // MARK: - 1. THEME  (change colors, sizes and the button image here)
 // =====================================================================
 enum Theme {
-    // Moody rainy palette
-    static let grass = Color(red: 0.17, green: 0.25, blue: 0.25)
-    static let soilDark = Color(red: 0.16, green: 0.18, blue: 0.23)
-    static let soilLight = Color(red: 0.19, green: 0.21, blue: 0.27)
-    static let backdropTop = Color(red: 0.09, green: 0.11, blue: 0.16)
-    static let backdropBottom = Color(red: 0.14, green: 0.18, blue: 0.24)
-    static let card = Color(red: 0.14, green: 0.17, blue: 0.23)
+    // Season-dependent colours: they follow the chosen season (see Seasons.swift)
+    static var grass: Color { Season.current.grass }
+    static var soilDark: Color { Season.current.soilDark }
+    static var soilLight: Color { Season.current.soilLight }
+    static var backdropTop: Color { Season.current.backdropTop }
+    static var backdropBottom: Color { Season.current.backdropBottom }
+    static var card: Color { Season.current.card }
+    static var accent: Color { Season.current.accent }
+    static var gloom: Color { Season.current.gloom }
+
+    // Colours that stay the same in every season
     static let panelBorder = Color.white.opacity(0.12)
     static let text = Color(red: 0.88, green: 0.92, blue: 0.96)
     static let subtext = Color(red: 0.88, green: 0.92, blue: 0.96).opacity(0.6)
-    static let accent = Color(red: 0.45, green: 0.65, blue: 0.85)      // rain blue
     static let good = Color(red: 0.45, green: 0.78, blue: 0.65)        // soft teal
     static let gold = Color(red: 0.93, green: 0.78, blue: 0.50)
     static let bad = Color(red: 0.88, green: 0.45, blue: 0.50)
@@ -36,7 +39,6 @@ enum Theme {
 
     // Rain
     static let rainColor = Color(red: 0.75, green: 0.85, blue: 1.0)
-    static let gloom = Color(red: 0.05, green: 0.08, blue: 0.16).opacity(0.35)
 }
 
 // =====================================================================
@@ -432,16 +434,7 @@ struct RainLayer: View {
     }
 }
 
-// Dark background with rain, used behind the shops
-struct RainyBackdrop: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Theme.backdropTop, Theme.backdropBottom], startPoint: .top, endPoint: .bottom)
-            RainLayer().opacity(0.6)
-        }
-        .ignoresSafeArea()
-    }
-}
+// (The shop backdrop, SeasonBackdrop, now lives in Seasons.swift)
 
 // ---------- Drag and drop (our own, so it always works) ----------
 // What is being dragged and where the finger is (screen coordinates)
@@ -532,6 +525,8 @@ struct Game: View {
     var onExit: () -> Void
 
     @ObservedObject private var store = GameStore.shared
+    // Reading the season here makes the whole garden redraw when it changes
+    @AppStorage(Season.storageKey) private var seasonRaw = Season.rainy.rawValue
     @State private var plotOffset = CGSize.zero
     @State private var savedOffset = CGSize.zero
     @State private var holding = false
@@ -560,9 +555,9 @@ struct Game: View {
                     }
                 }
 
-                // Gloomy tint + falling rain
+                // Seasonal tint + weather (snow, rain or sun rays)
                 Rectangle().fill(Theme.gloom).allowsHitTesting(false)
-                RainLayer()
+                WeatherLayer()
 
                 // Outline on the tile you are about to drop onto
                 if let d = dragging, gardenFrame != .zero {
@@ -601,10 +596,18 @@ struct Game: View {
                 .padding()
         }
 
-        // Relocate (top right)
+        // Relocate + change season (top right)
         .overlay(alignment: .topTrailing) {
-            GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
-                .padding()
+            VStack(spacing: 10) {
+                GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
+                // Cycles winter -> rainy -> sunlight
+                GameButton(icon: (Season(rawValue: seasonRaw) ?? .rainy).icon, width: 50, height: 50) {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        seasonRaw = (Season(rawValue: seasonRaw) ?? .rainy).next.rawValue
+                    }
+                }
+            }
+            .padding()
         }
 
         // Points + messages (top center)
@@ -939,7 +942,7 @@ struct BuyScreen: View {
 
     var body: some View {
         ZStack {
-            RainyBackdrop()
+            SeasonBackdrop()
             VStack(spacing: 12) {
                 HStack {
                     // Always lets you go back to the garden
@@ -1059,7 +1062,7 @@ struct SellScreen: View {
         let hovering = dragging.map { boxFrame.contains($0.location) } ?? false
 
         ZStack {
-            RainyBackdrop()
+            SeasonBackdrop()
             VStack(spacing: 12) {
                 HStack {
                     GameButton(title: "Garden", icon: "chevron.left", width: 130, height: 44) {
