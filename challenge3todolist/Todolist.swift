@@ -24,7 +24,7 @@ struct Todolist: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                AppBackground()
+                
 
                 // Tasks are organised automatically: one section per subject
                 // (named once, in its heading), and finished tasks fade away.
