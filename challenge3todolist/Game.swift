@@ -34,7 +34,7 @@ enum Theme {
     static let cornerRadius: CGFloat = 16
     static let tileSize: CGFloat = 80
     static let tickSeconds = 0.25           // how often plants grow
-    static let sellRate = 0.5               // selling gives 50% of the price
+    static let sellRate = 0.7               // selling gives 50% of the price
     static let startingPoints = 100         // only used the very first time
 
     // Rain
@@ -80,8 +80,8 @@ enum Catalog {
 
     static let minPrice = 10.0
     static let maxPrice = 1_000_000_000.0
-    static let minGrowSeconds = 1.0
-    static let maxGrowSeconds = 1800.0      // 30 minutes
+    static let minGrowSeconds = 600.0       // 10 minutes
+    static let maxGrowSeconds = 864000.0    // 10 days
 
     static let crops: [Crop] = {
         let n = cropNames.count
