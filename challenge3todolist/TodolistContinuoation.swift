@@ -12,8 +12,13 @@ import Combine
 /// Codable so a subject (and its colour) can be saved.
 enum SubjectColor: String, CaseIterable, Identifiable, Codable {
     case red, orange, yellow, green, blue, purple, pink
+    /// Only used by the built-in "No Subject"; not offered when creating a subject.
+    case gray
 
     var id: String { rawValue }
+
+    /// The colours the user can pick from.
+    static var choices: [SubjectColor] { allCases.filter { $0 != .gray } }
 
     var color: Color {
         switch self {
@@ -24,6 +29,7 @@ enum SubjectColor: String, CaseIterable, Identifiable, Codable {
         case .blue: .blue
         case .purple: .purple
         case .pink: .pink
+        case .gray: .gray
         }
     }
 }
@@ -34,6 +40,11 @@ struct Subject: Identifiable, Hashable, Codable {
     var id = UUID()
     var name: String
     var color: SubjectColor
+
+    /// The built-in subject for tasks (and study time) that belong to no subject.
+    /// It has a fixed id and is never saved with the user's own subjects.
+    static let none = Subject(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+                              name: "No Subject", color: .gray)
 }
 
 /// One to-do item.
@@ -90,10 +101,13 @@ final class TodoStore: ObservableObject {
         defaults.set(try? JSONEncoder().encode(reminders), forKey: Self.remindersKey)
     }
 
+    /// The user's subjects followed by the built-in "No Subject".
+    var allSubjects: [Subject] { subjects + [Subject.none] }
+
     /// Unfinished tasks organised by subject (one group per subject that has
     /// tasks), each group sorted by due date.
     var activeGroups: [TaskGroup] {
-        subjects.compactMap { subject in
+        allSubjects.compactMap { subject in
             let tasks = reminders
                 .filter { $0.subject.id == subject.id && !$0.isCompleted }
                 .sorted { $0.dueDate < $1.dueDate }

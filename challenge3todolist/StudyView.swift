@@ -104,7 +104,10 @@ struct StudyView: View {
         let chosenSubjectIDs = Set(chosen.map(\.subject.id))
         withAnimation(.snappy) {
             sessionTaskIDs = taskIDs
-            sessionSubjects = todoStore.subjects.filter { chosenSubjectIDs.contains($0.id) }
+            // Studying without any task is logged under "No Subject"
+            sessionSubjects = chosen.isEmpty
+                ? [Subject.none]
+                : todoStore.allSubjects.filter { chosenSubjectIDs.contains($0.id) }
             sessionActive = true
         }
         pendingStart?()

@@ -48,11 +48,13 @@ struct GroupedTaskList: View {
 
     var body: some View {
         let completed = store.completedTasks.filter(isShown)
-        let groups: [TaskGroup] = store.subjects.compactMap { subject in
+        let groups: [TaskGroup] = store.allSubjects.compactMap { subject in
             let tasks = store.reminders
                 .filter { $0.subject.id == subject.id && !$0.isCompleted && isShown($0) }
                 .sorted { $0.dueDate < $1.dueDate }
-            return (tasks.isEmpty && !managesSubjects) ? nil : TaskGroup(subject: subject, tasks: tasks)
+            // Empty subjects stay visible when managing, except the built-in "No Subject"
+            let keepsEmpty = managesSubjects && subject.id != Subject.none.id
+            return (tasks.isEmpty && !keepsEmpty) ? nil : TaskGroup(subject: subject, tasks: tasks)
         }
 
         List {
@@ -81,7 +83,8 @@ struct GroupedTaskList: View {
                     }
                 } header: {
                     SubjectHeader(subject: group.subject, count: group.tasks.count,
-                                  onDelete: managesSubjects ? { subjectToDelete = group.subject } : nil)
+                                  onDelete: (managesSubjects && group.subject.id != Subject.none.id)
+                                      ? { subjectToDelete = group.subject } : nil)
                 }
             }
 

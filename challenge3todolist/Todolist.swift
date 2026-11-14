@@ -62,7 +62,7 @@ struct Todolist: View {
                 .padding(.bottom, 24)
                 // Popover letting the user choose what to create
                 .popover(isPresented: $showingAddMenu) {
-                    AddMenuView(hasSubjects: !store.subjects.isEmpty) { choice in
+                    AddMenuView { choice in
                         showingAddMenu = false
                         activeSheet = choice
                     }
@@ -78,7 +78,7 @@ struct Todolist: View {
                         store.subjects.append(newSubject)
                     }
                 case .task:
-                    AddTaskView(subjects: store.subjects) { newReminder in
+                    AddTaskView(subjects: store.allSubjects) { newReminder in
                         store.reminders.append(newReminder)
                     }
                 }
@@ -89,7 +89,6 @@ struct Todolist: View {
 
 // MARK: - Popover Menu
 struct AddMenuView: View {
-    let hasSubjects: Bool
     var onSelect: (AddSheet) -> Void
 
     var body: some View {
@@ -106,13 +105,6 @@ struct AddMenuView: View {
                 onSelect(.task)
             } label: {
                 Label("Create Task", systemImage: "checklist")
-            }
-            .disabled(!hasSubjects)
-
-            if !hasSubjects {
-                Text("Create a subject first")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
         .padding()
@@ -137,7 +129,7 @@ struct AddSubjectView: View {
 
                 Section("Colour") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
-                        ForEach(SubjectColor.allCases) { option in
+                        ForEach(SubjectColor.choices) { option in
                             Circle()
                                 .fill(option.color)
                                 .frame(width: 32, height: 32)
@@ -189,15 +181,27 @@ struct AddTaskView: View {
                 Section("Details") {
                     TextField("Task Title", text: $title)
 
-                    Picker("Subject", selection: $selectedSubject) {
-                        ForEach(subjects) { subject in
-                            Label {
+                }
+
+                // A list of rows rather than a Picker menu, because menus
+                // draw their icons without colour.
+                Section("Subject") {
+                    ForEach(subjects) { subject in
+                        Button {
+                            selectedSubject = subject
+                        } label: {
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(subject.color.color)
+                                    .frame(width: 14, height: 14)
                                 Text(subject.name)
-                            } icon: {
-                                Image(systemName: "circle.fill")
-                                    .foregroundStyle(subject.color.color)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if selectedSubject?.id == subject.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(subject.color.color)
+                                }
                             }
-                            .tag(Optional(subject))
                         }
                     }
                 }
@@ -208,9 +212,6 @@ struct AddTaskView: View {
             }
             .navigationTitle("New Task")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                if selectedSubject == nil { selectedSubject = subjects.first }
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

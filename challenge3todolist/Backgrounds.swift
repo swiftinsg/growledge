@@ -9,9 +9,25 @@ import SwiftUI
 
 /// The interactive garden shown behind the Home tab.
 struct GardenBackground: View {
+    @ObservedObject private var store = GameStore.shared
+
     var body: some View {
-        GardenPlot(offset: .zero)
-            .ignoresSafeArea()
+        ZStack {
+            GardenPlot(offset: .zero)
+
+            // The seeds, fruits and sprinklers planted in the garden
+            ForEach(store.tiles.keys.sorted(), id: \.self) { key in
+                if let tile = store.tiles[key] {
+                    let spot = tileCoords(key)
+                    TileContent(tile: tile, speed: store.speed(forKey: key))
+                        .position(
+                            x: (CGFloat(spot.col) + 0.5) * Theme.tileSize,
+                            y: (CGFloat(spot.row) + 0.5) * Theme.tileSize
+                        )
+                }
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 

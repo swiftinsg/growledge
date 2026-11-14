@@ -163,7 +163,15 @@ final class GameStore: ObservableObject {
     @Published var tiles: [String: Tile]
     private var ticks = 0
 
+    // Plants grow all the time, not only while the garden screen is open
+    private var growTimer: Timer?
+
     init() {
+        defer {
+            growTimer = Timer.scheduledTimer(withTimeInterval: Theme.tickSeconds, repeats: true) { [weak self] _ in
+                self?.tick(Theme.tickSeconds)
+            }
+        }
         let d = UserDefaults.standard
         if d.object(forKey: "points") == nil { d.set(Theme.startingPoints, forKey: "points") }
         points = d.integer(forKey: "points")
@@ -532,10 +540,7 @@ struct Game: View {
     @State private var holding = false
     @State private var toast: String?
     @State private var dragging: DragInfo?
-    @State private var selected: String?
     @State private var gardenFrame: CGRect = .zero
-
-    private let timer = Timer.publish(every: Theme.tickSeconds, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -575,15 +580,8 @@ struct Game: View {
             .ignoresSafeArea()
             .readFrame($gardenFrame)
             .simultaneousGesture(panGesture)
-            // Tap a tile to plant the selected item
-            .simultaneousGesture(
-                SpatialTapGesture(coordinateSpace: .global).onEnded { value in
-                    if let id = selected { plant(id, atGlobal: value.location) }
-                }
-            )
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onReceive(timer) { _ in store.tick(Theme.tickSeconds) }
         .onDisappear { store.save() }
 
         // ==================================================
@@ -614,15 +612,6 @@ struct Game: View {
         .overlay(alignment: .top) {
             VStack(spacing: 8) {
                 PointsPill()
-                if let selected {
-                    Text("Tap a tile to plant \(ItemInfo(id: selected).displayName)")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Theme.accent.opacity(0.9)))
-                }
                 if let toast {
                     Text(toast)
                         .font(.subheadline)
@@ -640,7 +629,7 @@ struct Game: View {
 
         // Inventory bar (right side)
         .overlay(alignment: .trailing) {
-            InventoryBar(dragging: $dragging, selected: $selected) { id, point in
+            InventoryBar(dragging: $dragging) { id, point in
                 plant(id, atGlobal: point)
             }
             .padding(.trailing, 6)
@@ -728,7 +717,6 @@ struct Game: View {
         let spot = tileAt(point)
         if store.place(id, col: spot.col, row: spot.row) {
             SoundPlayer.pop()
-            if store.count(id) == 0 { selected = nil }
         } else {
             showToast("That spot is taken, or it can't go here")
         }
@@ -842,7 +830,6 @@ struct TileContent: View {
 struct InventoryBar: View {
     @ObservedObject private var store = GameStore.shared
     @Binding var dragging: DragInfo?
-    @Binding var selected: String?
     var onDrop: (String, CGPoint) -> Void
 
     var body: some View {
@@ -864,9 +851,7 @@ struct InventoryBar: View {
                             InventoryCell(
                                 id: id,
                                 count: store.count(id),
-                                isSelected: selected == id,
                                 dragging: $dragging,
-                                onTap: { selected = (selected == id) ? nil : id },
                                 onDrop: { point in onDrop(id, point) }
                             )
                         }
@@ -883,15 +868,11 @@ struct InventoryBar: View {
     }
 }
 
-// One item.
-// Option 1: press and hold for a moment, then drag it onto a tile.
-// Option 2: tap it (blue outline), then tap a tile.
+// One item: press and hold for a moment, then drag it onto a tile.
 struct InventoryCell: View {
     let id: String
     let count: Int
-    let isSelected: Bool
     @Binding var dragging: DragInfo?
-    var onTap: () -> Void
     var onDrop: (CGPoint) -> Void
 
     var body: some View {
@@ -923,12 +904,7 @@ struct InventoryCell: View {
         .frame(width: 64)
         .padding(.vertical, 4)
         .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.07)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.accent, lineWidth: isSelected ? 3 : 0)
-        )
         .opacity(dragging?.id == id ? 0.4 : 1)
-        .onTapGesture { onTap() }
         .itemDrag(id: id, dragging: $dragging, onDrop: onDrop)
     }
 }
