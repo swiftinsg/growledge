@@ -262,7 +262,10 @@ struct TimerView: View {
     /// Breaks are never logged.
     private func logStudySegment() {
         guard phase == .work, let start = segmentStart else { return }
-        StudyLogStore.shared.record(start: start, end: .now, subjects: subjects)
+        // If the phase ran out while the app was in the background, only the
+        // time up to its scheduled end was studied, not the time away.
+        let end = min(.now, endDate ?? .now)
+        StudyLogStore.shared.record(start: start, end: end, subjects: subjects)
         segmentStart = nil
     }
 
