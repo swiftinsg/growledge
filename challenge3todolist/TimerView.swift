@@ -221,6 +221,7 @@ struct TimerView: View {
         logStudySegment()
         tickTask?.cancel()
         tickTask = nil
+        TimerNotifications.cancel()
         if let endDate {
             remaining = max(0, endDate.timeIntervalSinceNow)
         }
@@ -268,6 +269,7 @@ struct TimerView: View {
     private func stopTicking() {
         tickTask?.cancel()
         tickTask = nil
+        TimerNotifications.cancel()
         endDate = nil
         remaining = 0
         state = .idle
@@ -297,6 +299,7 @@ struct TimerView: View {
     private func runCountdown() {
         let target = Date.now.addingTimeInterval(remaining)
         endDate = target
+        TimerNotifications.schedule(after: remaining, endingFocus: phase == .work)
         tickTask?.cancel()
         tickTask = Task { @MainActor in
             while !Task.isCancelled {
