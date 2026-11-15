@@ -22,3 +22,24 @@ struct CoinReward {
     /// Coins for the study time: 10,000 per hour.
     var total: Int { minutes * Self.coinsPerHour / 60 }
 }
+
+/// Allows a reward only `limit` times per calendar day. The count is kept in
+/// `defaults` and starts again from zero on a new day.
+struct DailyRewardLimiter {
+    var defaults: UserDefaults = .standard
+    var limit: Int
+    var key = "reward.task"
+
+    /// Counts one reward; false once today's limit has been reached.
+    func claim(now: Date = .now, calendar: Calendar = .current) -> Bool {
+        let today = calendar.startOfDay(for: now)
+        var count = defaults.integer(forKey: key + "Count")
+        if (defaults.object(forKey: key + "Day") as? Date) != today {
+            defaults.set(today, forKey: key + "Day")
+            count = 0
+        }
+        guard count < limit else { return false }
+        defaults.set(count + 1, forKey: key + "Count")
+        return true
+    }
+}

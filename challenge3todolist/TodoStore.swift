@@ -127,24 +127,10 @@ final class TodoStore: ObservableObject {
         reminders[index].isCompleted.toggle()
         if reminders[index].isCompleted && !reminders[index].rewarded {
             reminders[index].rewarded = true
-            if claimDailyTaskReward() {
+            if DailyRewardLimiter(limit: CoinReward.maxRewardedTasksPerDay).claim() {
                 GameStore.shared.points += CoinReward.bonusPerTask
             }
         }
-    }
-
-    /// Counts today's paid tasks; false once the daily limit is reached.
-    private func claimDailyTaskReward() -> Bool {
-        let defaults = UserDefaults.standard
-        let today = Calendar.current.startOfDay(for: .now)
-        var count = defaults.integer(forKey: "reward.taskCount")
-        if (defaults.object(forKey: "reward.taskDay") as? Date) != today {
-            defaults.set(today, forKey: "reward.taskDay")
-            count = 0
-        }
-        guard count < CoinReward.maxRewardedTasksPerDay else { return false }
-        defaults.set(count + 1, forKey: "reward.taskCount")
-        return true
     }
 
     /// Deletes a subject together with all of its tasks.
