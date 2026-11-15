@@ -44,7 +44,10 @@ struct ContentView: View {
         // catch up when we come back, and save when we leave.
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .active: GameStore.shared.advance()
+            case .active:
+                GameStore.shared.advance()
+                // The user may have changed Screen Time access in Settings
+                FocusLock.shared.refreshAuthorization()
             case .background:
                 GameStore.shared.advance()
                 GameStore.shared.save()

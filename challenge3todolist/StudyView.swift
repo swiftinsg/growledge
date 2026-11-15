@@ -17,6 +17,8 @@ struct StudyView: View {
     @State private var sessionSubjects: [Subject] = []
     @State private var sessionActive = false
     @State private var showingTaskPicker = false
+    @ObservedObject private var focusLock = FocusLock.shared
+    @State private var showingFocusLock = false
     /// The timer's start action, held until the user has chosen their tasks.
     @State private var pendingStart: (() -> Void)?
 
@@ -27,6 +29,18 @@ struct StudyView: View {
                     Text("Studying")
                         .font(.system(.title2, design: .rounded, weight: .bold))
                     Spacer()
+                    // Opens the settings for blocking apps during focus time
+                    Button {
+                        showingFocusLock = true
+                    } label: {
+                        Image(systemName: focusLock.isReady ? "lock.fill" : "lock.open")
+                            .font(.headline)
+                            .foregroundStyle(focusLock.isReady ? Theme.gold : Theme.subtext)
+                            .frame(width: 38, height: 38)
+                            .background(Circle().fill(Theme.card.opacity(0.9)))
+                            .overlay(Circle().stroke(Theme.panelBorder, lineWidth: 1))
+                    }
+                    .accessibilityLabel(focusLock.isReady ? "Focus lock is on" : "Focus lock settings")
                     PointsPill()
                         .accessibilityLabel("\(store.points) coins")
                 }
@@ -59,6 +73,9 @@ struct StudyView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingTaskPicker) {
             TaskPickerSheet(onStart: startSession)
+        }
+        .sheet(isPresented: $showingFocusLock) {
+            FocusLockSheet()
         }
         .alert("Session Complete", isPresented: showingResult, presenting: lastReward) { _ in
             Button("OK", role: .cancel) {}
