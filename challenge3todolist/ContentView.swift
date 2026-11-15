@@ -20,6 +20,8 @@ struct ContentView: View {
     // The study log drives both the progress bar and the streak.
     @ObservedObject private var log = StudyLogStore.shared
 
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var gameStarted = false
     @State private var showBar = true
     @State private var showStreak = true
@@ -38,6 +40,17 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.5), value: hasCompletedOnboarding)
         // The whole app uses the moody garden look, which suits dark mode
         .preferredColorScheme(.dark)
+        // Plants keep growing while the app is in the background or closed:
+        // catch up when we come back, and save when we leave.
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active: GameStore.shared.advance()
+            case .background:
+                GameStore.shared.advance()
+                GameStore.shared.save()
+            default: break
+            }
+        }
     }
 
     private var mainTabs: some View {

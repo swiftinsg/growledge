@@ -166,13 +166,20 @@ final class GameStore: ObservableObject {
     // Plants grow all the time, not only while the garden screen is open
     private var growTimer: Timer?
 
+    // When growth was last applied. Saved together with the tiles, so time
+    // spent with the app closed or in the background still counts.
+    private var lastUpdate: Date
+
     init() {
+        let d = UserDefaults.standard
+        lastUpdate = (d.object(forKey: "garden.lastUpdate") as? Date) ?? .now
         defer {
+            // Catch up on the time the app was closed, then keep ticking
+            advance()
             growTimer = Timer.scheduledTimer(withTimeInterval: Theme.tickSeconds, repeats: true) { [weak self] _ in
-                self?.tick(Theme.tickSeconds)
+                self?.advance()
             }
         }
-        let d = UserDefaults.standard
         if d.object(forKey: "points") == nil { d.set(Theme.startingPoints, forKey: "points") }
         points = d.integer(forKey: "points")
         inventory = (d.dictionary(forKey: "garden.inventory") as? [String: Int]) ?? [:]
@@ -188,6 +195,7 @@ final class GameStore: ObservableObject {
         let d = UserDefaults.standard
         d.set(inventory, forKey: "garden.inventory")
         d.set(try? JSONEncoder().encode(tiles), forKey: "garden.tiles")
+        d.set(lastUpdate, forKey: "garden.lastUpdate")
     }
 
     // ---- inventory ----
@@ -283,6 +291,15 @@ final class GameStore: ObservableObject {
             }
         }
         return speed
+    }
+
+    /// Grows plants by the real time since the last update. Also called when
+    /// the app returns to the foreground, where the timer was paused.
+    func advance() {
+        let now = Date()
+        let dt = max(0, now.timeIntervalSince(lastUpdate))
+        lastUpdate = now
+        tick(dt)
     }
 
     func tick(_ dt: Double) {
