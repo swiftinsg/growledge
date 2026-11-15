@@ -28,6 +28,50 @@ struct CoinRewardTests {
 }
 
 @MainActor
+struct StreakBonusTests {
+    private let enough = CoinReward.minMinutesForStreakBonus
+
+    @Test func noBonusForAFirstDay() {
+        #expect(CoinReward.streakBonus(streakDays: 0, minutesStudied: 60) == 0)
+        #expect(CoinReward.streakBonus(streakDays: 1, minutesStudied: 60) == 0)
+    }
+
+    @Test func bonusGrowsWithEachDayOfTheStreak() {
+        #expect(CoinReward.streakBonus(streakDays: 2, minutesStudied: enough) == 2 * CoinReward.streakBonusPerDay)
+        #expect(CoinReward.streakBonus(streakDays: 7, minutesStudied: enough) == 7 * CoinReward.streakBonusPerDay)
+    }
+
+    @Test func bonusStopsGrowingAtTheCap() {
+        let cap = CoinReward.maxStreakBonusDays * CoinReward.streakBonusPerDay
+        #expect(CoinReward.streakBonus(streakDays: CoinReward.maxStreakBonusDays, minutesStudied: enough) == cap)
+        #expect(CoinReward.streakBonus(streakDays: 365, minutesStudied: enough) == cap)
+    }
+
+    @Test func aTooShortSessionEarnsNoBonus() {
+        #expect(CoinReward.streakBonus(streakDays: 10, minutesStudied: enough - 1) == 0)
+        #expect(CoinReward.streakBonus(streakDays: 10, minutesStudied: 0) == 0)
+        #expect(CoinReward.streakBonus(streakDays: 10, minutesStudied: enough) > 0)
+    }
+
+    @Test func theBonusIsAddedToTheSessionTotal() {
+        var reward = CoinReward(studiedSeconds: 3600)         // 1 hour = 10,000
+        #expect(reward.grandTotal == reward.total)             // no bonus yet
+        reward.streakBonus = 5_000
+        #expect(reward.grandTotal == CoinReward.coinsPerHour + 5_000)
+    }
+
+    @Test func theBonusCanOnlyBePaidOncePerDay() {
+        let name = "test.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        let limiter = DailyRewardLimiter(defaults: defaults, limit: 1, key: "reward.streak")
+
+        #expect(limiter.claim())
+        #expect(!limiter.claim())
+    }
+}
+
+@MainActor
 struct DailyRewardLimiterTests {
     /// A throw-away UserDefaults so tests never touch the app's real data.
     private func makeDefaults() -> UserDefaults {
