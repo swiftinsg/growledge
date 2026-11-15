@@ -212,8 +212,11 @@ struct TaskRow: View {
     var showsSubject = false
     @ObservedObject private var store = TodoStore.shared
 
-    /// True while the "finishing" animation plays.
-    @State private var fading = false
+    /// True while the "finishing" animation plays. This lives in the store, not
+    /// in this view's own @State: when a task is finished and then un-finished,
+    /// SwiftUI hands the old row's state to the row that appears, so a flag kept
+    /// here stayed stuck on and the task came back fully faded out (invisible).
+    private var fading: Bool { store.finishingIDs.contains(task.id) }
     /// Drives the "+15,000" label floating upwards.
     @State private var floatUp = false
 
@@ -295,13 +298,18 @@ struct TaskRow: View {
             return
         }
 
-        withAnimation(.easeIn(duration: 0.65)) { fading = true }
+        withAnimation(.easeIn(duration: 0.65)) { _ = store.finishingIDs.insert(task.id) }
         withAnimation(.easeOut(duration: 0.9)) { floatUp = true }
 
         // Once the fade has played, actually move the task to Completed
+        let id = task.id
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(700))
-            withAnimation(.easeOut(duration: 0.3)) { store.toggleCompleted(task.id) }
+            withAnimation(.easeOut(duration: 0.3)) {
+                store.toggleCompleted(id)
+                store.finishingIDs.remove(id)
+            }
+            floatUp = false
         }
     }
 }
