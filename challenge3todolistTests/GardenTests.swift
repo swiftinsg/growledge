@@ -95,6 +95,34 @@ struct GardenGrowthTests {
 }
 
 @MainActor
+struct WeatherTests {
+    private func drop(opacity: Double) -> RainDrop {
+        RainDrop(x: 0, speed: 1, length: 1, phase: 0, opacity: opacity)
+    }
+
+    @Test func dropsAreSplitIntoThreeBrightnessGroups() {
+        let range = 0.0...1.0
+        #expect(drop(opacity: 0.0).group(in: range) == 0)
+        #expect(drop(opacity: 0.32).group(in: range) == 0)
+        #expect(drop(opacity: 0.5).group(in: range) == 1)
+        #expect(drop(opacity: 0.67).group(in: range) == 2)
+        #expect(drop(opacity: 1.0).group(in: range) == 2)   // the top edge stays in range
+    }
+
+    @Test func valuesOutsideTheRangeAreClamped() {
+        #expect(drop(opacity: -1).group(in: 0.0...1.0) == 0)
+        #expect(drop(opacity: 5).group(in: 0.0...1.0) == 2)
+    }
+
+    @Test func everyRainDropFallsInAValidGroup() {
+        for rain in RainLayer.drops {
+            #expect((0...2).contains(rain.group(in: RainLayer.opacityRange)))
+        }
+        #expect(RainLayer.drops.count == Theme.rainDropCount)
+    }
+}
+
+@MainActor
 struct CatalogTests {
     @Test func cropNamesAreUnique() {
         #expect(Set(Catalog.cropNames).count == Catalog.cropNames.count)

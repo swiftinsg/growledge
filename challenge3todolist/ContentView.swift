@@ -112,7 +112,7 @@ struct ContentView: View {
                 // Home HUD: mission, progress bar, streak, and the Study link
                 VStack(spacing: 18) {
                     if !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        MissionBanner(goal: studyGoal)
+                        MissionBanner(goal: studyGoal, animated: !gameStarted)
                             .fadeIn(order: 0)
                     }
 
@@ -265,10 +265,31 @@ struct ContentView: View {
 /// shown big and glowing at the top of the Home screen.
 struct MissionBanner: View {
     let goal: String
+    /// The slow glow is switched off while something covers the banner
+    /// (the garden game), so it doesn't keep redrawing a blurred shadow
+    /// nobody can see.
+    var animated = true
 
     private let gold = Color(red: 0.98, green: 0.82, blue: 0.45)
 
     var body: some View {
+        Group {
+            if animated {
+                banner
+                    // A slow breathing glow
+                    .phaseAnimator([false, true]) { view, glow in
+                        view.shadow(color: gold.opacity(glow ? 0.55 : 0.15), radius: glow ? 26 : 8)
+                    } animation: { _ in
+                        .easeInOut(duration: 2.2)
+                    }
+            } else {
+                banner.shadow(color: gold.opacity(0.15), radius: 8)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var banner: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkle")
@@ -299,13 +320,6 @@ struct MissionBanner: View {
                 .strokeBorder(LinearGradient(colors: [gold, gold.opacity(0.1), gold], startPoint: .topLeading, endPoint: .bottomTrailing),
                               lineWidth: 1.5)
         )
-        // A slow breathing glow
-        .phaseAnimator([false, true]) { view, glow in
-            view.shadow(color: gold.opacity(glow ? 0.55 : 0.15), radius: glow ? 26 : 8)
-        } animation: { _ in
-            .easeInOut(duration: 2.2)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 
