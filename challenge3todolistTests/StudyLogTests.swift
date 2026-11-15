@@ -205,3 +205,56 @@ struct SessionTests {
         #expect(SessionSubject(name: "X", colorRaw: "not-a-colour").color == .gray)
     }
 }
+
+// MARK: - Subject totals (the colour key in History)
+
+@MainActor
+struct SubjectTotalTests {
+    private func blocks(_ sessions: [StudySession]) -> [StudyBlock] {
+        StudyLogStore(previewSessions: sessions).blocks(weekStarting: date(9), calendar: calendar)
+    }
+
+    @Test func studyWithNoSubjectIsCountedUnderOneName() {
+        // One session saved with no subjects at all, one with the built-in
+        // "No Subject": History must show them as a single entry.
+        let none = SessionSubject(name: Subject.none.name, colorRaw: Subject.none.color.rawValue)
+        let sessions = [
+            session(from: date(10, 9), to: date(10, 10)),
+            StudySession(start: date(10, 11), end: date(10, 12), subjects: [none])
+        ]
+
+        let totals = SubjectTotal.totals(for: blocks(sessions))
+
+        #expect(totals.count == 1)
+        #expect(totals[0].name == "No Subject")
+        #expect(totals[0].seconds == 7200)
+    }
+
+    @Test func realSubjectsAreKeptApartFromNoSubject() {
+        let math = SessionSubject(name: "Math", colorRaw: "blue")
+        let sessions = [
+            StudySession(start: date(10, 9), end: date(10, 11), subjects: [math]),
+            session(from: date(10, 12), to: date(10, 13))
+        ]
+
+        let totals = SubjectTotal.totals(for: blocks(sessions))
+
+        #expect(totals.map(\.name) == ["Math", "No Subject"])      // longest first
+        #expect(totals.map(\.seconds) == [7200, 3600])
+    }
+
+    @Test func severalSubjectsShareTheTimeEqually() {
+        let sessions = [StudySession(start: date(10, 9), end: date(10, 11),
+                                     subjects: [SessionSubject(name: "Math", colorRaw: "blue"),
+                                                SessionSubject(name: "Art", colorRaw: "pink")])]
+
+        let totals = SubjectTotal.totals(for: blocks(sessions))
+
+        #expect(totals.count == 2)
+        #expect(totals.allSatisfy { $0.seconds == 3600 })
+    }
+
+    @Test func noSessionsMeansNoTotals() {
+        #expect(SubjectTotal.totals(for: []).isEmpty)
+    }
+}

@@ -31,30 +31,6 @@ struct HistoryView: View {
         return "\(weekStart.formatted(format)) – \(end.formatted(format))"
     }
 
-    /// Time studied per subject (for the colour key under the chart).
-    private struct SubjectTotal: Identifiable {
-        let name: String
-        let color: Color
-        var seconds: TimeInterval
-        var id: String { name }
-    }
-
-    /// A block with several subjects shares its time equally between them.
-    private func subjectTotals(_ blocks: [StudyBlock]) -> [SubjectTotal] {
-        var totals: [String: SubjectTotal] = [:]
-        for block in blocks {
-            let subjects = block.subjects.isEmpty
-                ? [SessionSubject(name: "No subject", colorRaw: "")]
-                : block.subjects
-            let share = block.seconds / Double(subjects.count)
-            for subject in subjects {
-                totals[subject.name, default: SubjectTotal(name: subject.name, color: subject.color, seconds: 0)]
-                    .seconds += share
-            }
-        }
-        return totals.values.sorted { $0.seconds > $1.seconds }
-    }
-
     var body: some View {
         let blocks = log.blocks(weekStarting: weekStart, calendar: calendar)
         let totalSeconds = blocks.reduce(0) { $0 + $1.seconds }
@@ -78,7 +54,7 @@ struct HistoryView: View {
                         }
                         .fadeIn(order: 1)
 
-                        subjectKey(subjectTotals(blocks))
+                        subjectKey(SubjectTotal.totals(for: blocks))
                             .fadeIn(order: 2)
 
                         chart(blocks)
