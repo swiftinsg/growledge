@@ -20,7 +20,7 @@ struct Game: View {
     var onExit: () -> Void
 
     @ObservedObject private var store = GameStore.shared
-    // Reading the season here makes the whole garden redraw when it changes
+    // A new random season is saved here each time the garden opens (see onAppear)
     @AppStorage(Season.storageKey) private var seasonRaw = Season.rainy.rawValue
     @State private var plotOffset = CGSize.zero
     @State private var savedOffset = CGSize.zero
@@ -47,8 +47,7 @@ struct Game: View {
                     }
                 }
 
-                // Seasonal tint + weather (snow, rain or sun rays)
-                Rectangle().fill(Theme.gloom).allowsHitTesting(false)
+                // Weather (snow, rain or sun rays)
                 WeatherLayer()
 
                 // Outline on the tile you are about to drop onto
@@ -69,6 +68,8 @@ struct Game: View {
             .simultaneousGesture(panGesture)
         }
         .toolbar(.hidden, for: .navigationBar)
+        // Each visit to the garden gets a random season
+        .onAppear { seasonRaw = Season.random().rawValue }
         .onDisappear { store.save() }
 
         // ==================================================
@@ -81,18 +82,10 @@ struct Game: View {
                 .padding()
         }
 
-        // Relocate + change season (top right)
+        // Relocate (top right). The season is random, so there is no season button.
         .overlay(alignment: .topTrailing) {
-            VStack(spacing: 10) {
-                GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
-                // Cycles winter -> rainy -> sunlight
-                GameButton(icon: (Season(rawValue: seasonRaw) ?? .rainy).icon, width: 50, height: 50) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        seasonRaw = (Season(rawValue: seasonRaw) ?? .rainy).next.rawValue
-                    }
-                }
-            }
-            .padding()
+            GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
+                .padding()
         }
 
         // Points + messages (top center)
