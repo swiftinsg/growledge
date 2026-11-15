@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// The root of the app. First-time users see the two questions
-/// (firsttimer + Q2View); after that they get the tabs.
+/// (FirstTimerView + Q2View); after that they get the tabs.
 struct ContentView: View {
     // Weekly goal in hours (set by the second question). Used by the progress bar.
     @AppStorage("hisgoal") private var goalTime = 100.0
@@ -33,7 +33,7 @@ struct ContentView: View {
                 mainTabs
                     .transition(.opacity)
             } else {
-                firsttimer()
+                FirstTimerView()
                     .transition(.opacity)
             }
         }

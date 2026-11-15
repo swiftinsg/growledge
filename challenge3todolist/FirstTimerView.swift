@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct firsttimer: View {
+struct FirstTimerView: View {
     // Saved straight away so the answer is kept for later use in the app.
     @AppStorage("studyGoal") private var q1Text = ""
 
@@ -155,5 +155,5 @@ struct AnswerTextField: View {
 }
 
 #Preview {
-    firsttimer()
+    FirstTimerView()
 }
