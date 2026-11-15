@@ -9,6 +9,9 @@ import Foundation
 struct CoinReward {
     static let coinsPerHour = 10_000
     static let bonusPerTask = 15_000
+    /// Only this many finished tasks pay the bonus per day, so creating and
+    /// ticking off throw-away tasks can't be used to farm coins.
+    static let maxRewardedTasksPerDay = 10
 
     /// Seconds studied in the session that just ended.
     let studiedSeconds: TimeInterval

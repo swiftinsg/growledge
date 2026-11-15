@@ -1,5 +1,5 @@
 //
-//  TodolistContinuoation.swift
+//  TodoStore.swift
 //  The app
 //
 //  The data behind the to-do list: subjects, tasks and the shared store.
@@ -127,8 +127,24 @@ final class TodoStore: ObservableObject {
         reminders[index].isCompleted.toggle()
         if reminders[index].isCompleted && !reminders[index].rewarded {
             reminders[index].rewarded = true
-            GameStore.shared.points += CoinReward.bonusPerTask
+            if claimDailyTaskReward() {
+                GameStore.shared.points += CoinReward.bonusPerTask
+            }
         }
+    }
+
+    /// Counts today's paid tasks; false once the daily limit is reached.
+    private func claimDailyTaskReward() -> Bool {
+        let defaults = UserDefaults.standard
+        let today = Calendar.current.startOfDay(for: .now)
+        var count = defaults.integer(forKey: "reward.taskCount")
+        if (defaults.object(forKey: "reward.taskDay") as? Date) != today {
+            defaults.set(today, forKey: "reward.taskDay")
+            count = 0
+        }
+        guard count < CoinReward.maxRewardedTasksPerDay else { return false }
+        defaults.set(count + 1, forKey: "reward.taskCount")
+        return true
     }
 
     /// Deletes a subject together with all of its tasks.
