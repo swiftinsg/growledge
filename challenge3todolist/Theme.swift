@@ -1,0 +1,40 @@
+//
+//  Theme.swift
+//  The app
+//
+
+import SwiftUI
+
+// =====================================================================
+// MARK: - 1. THEME  (change colors, sizes and the button image here)
+// =====================================================================
+enum Theme {
+    // Season-dependent colours: they follow the chosen season (see Seasons.swift)
+    static var grass: Color { Season.current.grass }
+    static var soilDark: Color { Season.current.soilDark }
+    static var soilLight: Color { Season.current.soilLight }
+    static var backdropTop: Color { Season.current.backdropTop }
+    static var backdropBottom: Color { Season.current.backdropBottom }
+    static var card: Color { Season.current.card }
+    static var accent: Color { Season.current.accent }
+    static var gloom: Color { Season.current.gloom }
+
+    // Colours that stay the same in every season
+    static let panelBorder = Color.white.opacity(0.12)
+    static let text = Color(red: 0.88, green: 0.92, blue: 0.96)
+    static let subtext = Color(red: 0.88, green: 0.92, blue: 0.96).opacity(0.6)
+    static let good = Color(red: 0.45, green: 0.78, blue: 0.65)        // soft teal
+    static let gold = Color(red: 0.93, green: 0.78, blue: 0.50)
+    static let bad = Color(red: 0.88, green: 0.45, blue: 0.50)
+    static let coin = "✦"
+
+    static let buttonImage = "Image 1"      // background of every button
+    static let cornerRadius: CGFloat = 16
+    static let tileSize: CGFloat = 80
+    static let tickSeconds = 0.25           // how often plants grow
+    static let sellRate = 0.7               // selling gives 50% of the price
+    static let startingPoints = 100         // only used the very first time
+
+    // Rain
+    static let rainColor = Color(red: 0.75, green: 0.85, blue: 1.0)
+}
