@@ -9,16 +9,15 @@ import SwiftUI
 // MARK: - 1. THEME  (change colors, sizes and the button image here)
 // =====================================================================
 enum Theme {
-    // The garden ground never changes colour, whatever the season
-    static let grass = Color(red: 0.20, green: 0.34, blue: 0.30)
-    static let soilDark = Color(red: 0.20, green: 0.16, blue: 0.14)
-    static let soilLight = Color(red: 0.30, green: 0.24, blue: 0.20)
-
-    // Season-dependent colours: they follow the current season (see Seasons.swift)
+    // Season-dependent colours: they follow the chosen season (see Seasons.swift)
+    static var grass: Color { Season.current.grass }
+    static var soilDark: Color { Season.current.soilDark }
+    static var soilLight: Color { Season.current.soilLight }
     static var backdropTop: Color { Season.current.backdropTop }
     static var backdropBottom: Color { Season.current.backdropBottom }
     static var card: Color { Season.current.card }
     static var accent: Color { Season.current.accent }
+    static var gloom: Color { Season.current.gloom }
 
     // Colours that stay the same in every season
     static let panelBorder = Color.white.opacity(0.12)
@@ -35,12 +34,6 @@ enum Theme {
     static let tickSeconds = 0.25           // how often plants grow
     static let sellRate = 0.7               // selling gives 50% of the price
     static let startingPoints = 100         // only used the very first time
-
-    // Weather (rain, snow, sun rays). Fewer particles and a lower frame rate
-    // keep the garden smooth on slower devices; raise them for a richer look.
-    static let weatherFrameRate = 30.0
-    static let rainDropCount = 70
-    static let snowFlakeCount = 45
 
     // Rain
     static let rainColor = Color(red: 0.75, green: 0.85, blue: 1.0)

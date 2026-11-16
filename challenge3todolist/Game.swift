@@ -20,7 +20,7 @@ struct Game: View {
     var onExit: () -> Void
 
     @ObservedObject private var store = GameStore.shared
-    // A new random season is saved here each time the garden opens (see onAppear)
+    // Reading the season here makes the whole garden redraw when it changes
     @AppStorage(Season.storageKey) private var seasonRaw = Season.rainy.rawValue
     @State private var plotOffset = CGSize.zero
     @State private var savedOffset = CGSize.zero
@@ -28,6 +28,8 @@ struct Game: View {
     @State private var toast: String?
     @State private var dragging: DragInfo?
     @State private var gardenFrame: CGRect = .zero
+    @State private var showingBuy = false
+    @State private var showingSell = false
 
     var body: some View {
         ZStack {
@@ -35,19 +37,11 @@ struct Game: View {
             ZStack {
                 GardenPlot(offset: plotOffset)
 
-                ForEach(store.tiles.keys.sorted(), id: \.self) { key in
-                    if let tile = store.tiles[key] {
-                        let spot = tileCoords(key)
-                        TileContent(tile: tile, speed: store.speed(forKey: key))
-                            .position(
-                                x: (CGFloat(spot.col) + 0.5) * Theme.tileSize + plotOffset.width,
-                                y: (CGFloat(spot.row) + 0.5) * Theme.tileSize + plotOffset.height
-                            )
-                            .allowsHitTesting(false)
-                    }
-                }
+                // Tap any ready tile to harvest just that one crop.
+                GardenTilesLayer(store: store, offset: plotOffset, onTapTile: harvestOne)
 
-                // Weather (snow, rain or sun rays)
+                // Seasonal tint + weather (snow, rain or sun rays)
+                Rectangle().fill(Theme.gloom).allowsHitTesting(false)
                 WeatherLayer()
 
                 // Outline on the tile you are about to drop onto
@@ -68,8 +62,7 @@ struct Game: View {
             .simultaneousGesture(panGesture)
         }
         .toolbar(.hidden, for: .navigationBar)
-        // Each visit to the garden gets a random season
-        .onAppear { seasonRaw = Season.random().rawValue }
+        .onAppear { store.advance() }
         .onDisappear { store.save() }
 
         // ==================================================
@@ -82,10 +75,23 @@ struct Game: View {
                 .padding()
         }
 
-        // Relocate (top right). The season is random, so there is no season button.
+        // Relocate + change season (top right)
         .overlay(alignment: .topTrailing) {
-            GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
-                .padding()
+            VStack(spacing: 10) {
+                GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
+                // Cycles winter -> rainy -> sunlight
+                GameButton(icon: (Season(rawValue: seasonRaw) ?? .rainy).icon, width: 50, height: 50) {
+                    let next = (Season(rawValue: seasonRaw) ?? .rainy).next
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        seasonRaw = next.rawValue
+                    }
+                    let speedText = next.growthMultiplier == 1
+                        ? "normal speed"
+                        : "×\(next.growthMultiplier.formatted()) growth speed"
+                    showToast("\(next.label) — \(speedText)")
+                }
+            }
+            .padding()
         }
 
         // Points + messages (top center)
@@ -119,7 +125,7 @@ struct Game: View {
 
         // Harvest: press and HOLD (bottom left)
         .overlay(alignment: .bottomLeading) {
-            ButtonLook(title: "Hold to Harvest", icon: "hand.tap.fill", width: 200, height: 56)
+            ButtonLook(title: "Hold to Harvest All", icon: "hand.tap.fill", width: 220, height: 56)
                 .overlay(alignment: .topTrailing) {
                     if store.readyCount > 0 {
                         Text("\(store.readyCount)")
@@ -141,31 +147,37 @@ struct Game: View {
                 .padding()
         }
 
-        // Buy + Sell navigation links (bottom right, stacked)
+        // Buy + Sell (bottom right, stacked). Plain Buttons that push the
+        // screen themselves, each with one gesture recognizer, spaced well
+        // apart — the old NavigationLink-plus-overlapping-gesture pairing
+        // here is what made taps land on the wrong button.
         .overlay(alignment: .bottomTrailing) {
-            VStack(spacing: 10) {
-                NavigationLink {
-                    BuyScreen()
+            VStack(spacing: 18) {
+                Button {
+                    Haptics.tap()
+                    SoundPlayer.pop()
+                    showingBuy = true
                 } label: {
                     ButtonLook(title: "Buy", icon: "cart.fill", width: 120, height: 46)
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded { SoundPlayer.pop() })
-                Spacer()
-                    .frame(height: 2)
-                NavigationLink {
-                    SellScreen()
+                .bouncy(haptic: false)
+
+                Button {
+                    Haptics.tap()
+                    SoundPlayer.pop()
+                    showingSell = true
                 } label: {
-                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 120, height:   46)
+                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 120, height: 46)
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded { SoundPlayer.pop() })
+                .bouncy(haptic: false)
             }
             .padding()
         }
 
         // The icon that follows your finger (keep this LAST so it is on top)
         .overlay { DragGhost(drag: dragging) }
+        .navigationDestination(isPresented: $showingBuy) { BuyScreen() }
+        .navigationDestination(isPresented: $showingSell) { SellScreen() }
     }
 
     // ---------- Actions ----------
@@ -196,16 +208,28 @@ struct Game: View {
 
         let spot = tileAt(point)
         if store.place(id, col: spot.col, row: spot.row) {
-            SoundPlayer.pop()
+            Haptics.tap()
+            SoundPlayer.plant()
         } else {
+            Haptics.warning()
             showToast("That spot is taken, or it can't go here")
         }
     }
 
     func harvest() {
         let n = store.harvest()
-        SoundPlayer.pop()
+        if n > 0 { Haptics.success() } else { Haptics.warning() }
+        SoundPlayer.harvest()
         showToast(n > 0 ? "Harvested \(n) crop\(n == 1 ? "" : "s")" : "Nothing is ready yet")
+    }
+
+    /// Tapping a single ready tile harvests just that crop.
+    func harvestOne(_ key: String) {
+        if store.harvestTile(key) {
+            Haptics.success()
+            SoundPlayer.harvest()
+            showToast("Harvested 1 crop")
+        }
     }
 
     func showToast(_ text: String) {

@@ -164,28 +164,3 @@ final class StudyLogStore: ObservableObject {
         return streak
     }
 }
-
-/// Time studied per subject (the colour key under the History chart).
-struct SubjectTotal: Identifiable {
-    let name: String
-    let color: Color
-    var seconds: TimeInterval
-    var id: String { name }
-
-    /// A block with several subjects shares its time equally between them.
-    /// Study with no subject at all counts as the built-in "No Subject", so it
-    /// never shows up twice under slightly different names.
-    static func totals(for blocks: [StudyBlock]) -> [SubjectTotal] {
-        let none = SessionSubject(name: Subject.none.name, colorRaw: Subject.none.color.rawValue)
-        var totals: [String: SubjectTotal] = [:]
-        for block in blocks {
-            let subjects = block.subjects.isEmpty ? [none] : block.subjects
-            let share = block.seconds / Double(subjects.count)
-            for subject in subjects {
-                totals[subject.name, default: SubjectTotal(name: subject.name, color: subject.color, seconds: 0)]
-                    .seconds += share
-            }
-        }
-        return totals.values.sorted { $0.seconds > $1.seconds }
-    }
-}

@@ -33,13 +33,12 @@ struct TimerView: View {
     @State private var completedStudyTime: TimeInterval = 0
     /// When the current stretch of focus time began (used for the History chart).
     @State private var segmentStart: Date?
-    /// Unlocks the apps if this screen goes away while a focus phase is running.
-    @StateObject private var lockSession = FocusLockSession()
-    /// The subjects of the current session, kept in shared state. A running
-    /// countdown holds an old copy of this view (from before the subjects were
-    /// chosen), so it must not read `subjects` directly or it would log study
-    /// time with no subject.
-    @State private var activeSubjects: [Subject] = []
+    /// Whether the timer is taking over the whole screen right now.
+    @State private var isFullScreen = false
+
+    /// The user's own answer to "What do you hope to achieve from studying?",
+    /// shown (among other goals) while the timer is full screen.
+    @AppStorage("studyGoal") private var studyGoal = ""
 
     /// The subjects being studied; History colours the session with them.
     var subjects: [Subject] = []
@@ -76,6 +75,23 @@ struct TimerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            HStack {
+                Spacer()
+                // Lets the user choose whether the timer takes over the
+                // whole screen or stays docked above the to-do list.
+                Button {
+                    Haptics.tap()
+                    withAnimation(.easeInOut(duration: 0.3)) { isFullScreen = true }
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(8)
+                        .background(.secondary.opacity(0.12), in: Circle())
+                }
+                .accessibilityLabel("Show timer full screen")
+            }
+
             countdownRing
                 .frame(maxHeight: .infinity)
 
@@ -88,6 +104,17 @@ struct TimerView: View {
             .disabled(studiedTime == 0)
         }
         .padding()
+        .fullScreenCover(isPresented: $isFullScreen) {
+            FullScreenTimerView(
+                ring: countdownRing,
+                controls: controls,
+                studyGoal: studyGoal,
+                studiedTime: studiedTime,
+                canEnd: studiedTime > 0,
+                onEnd: endSession,
+                onMinimize: { isFullScreen = false }
+            )
+        }
         .sheet(isPresented: $isEditingDuration) {
             WorkDurationSheet(workMinutes: $workMinutes, breakRatio: Self.breakRatio) {
                 hasConfiguredWorkTime = true
@@ -97,11 +124,7 @@ struct TimerView: View {
             // On first launch the user must confirm a work time.
             .interactiveDismissDisabled(!hasConfiguredWorkTime)
         }
-        .onChange(of: subjects) { _, newSubjects in
-            activeSubjects = newSubjects
-        }
         .onAppear {
-            activeSubjects = subjects
             if !hasConfiguredWorkTime {
                 isEditingDuration = true
             }
@@ -233,7 +256,6 @@ struct TimerView: View {
         tickTask?.cancel()
         tickTask = nil
         TimerNotifications.cancel()
-        FocusLock.shared.unlock()
         if let endDate {
             remaining = max(0, endDate.timeIntervalSinceNow)
         }
@@ -277,7 +299,7 @@ struct TimerView: View {
         // If the phase ran out while the app was in the background, only the
         // time up to its scheduled end was studied, not the time away.
         let end = min(.now, endDate ?? .now)
-        StudyLogStore.shared.record(start: start, end: end, subjects: activeSubjects)
+        StudyLogStore.shared.record(start: start, end: end, subjects: subjects)
         segmentStart = nil
     }
 
@@ -285,7 +307,6 @@ struct TimerView: View {
         tickTask?.cancel()
         tickTask = nil
         TimerNotifications.cancel()
-        FocusLock.shared.unlock()
         endDate = nil
         remaining = 0
         state = .idle
@@ -316,12 +337,6 @@ struct TimerView: View {
         let target = Date.now.addingTimeInterval(remaining)
         endDate = target
         TimerNotifications.schedule(after: remaining, endingFocus: phase == .work)
-        // Apps are blocked during focus time only; breaks are free
-        if phase == .work {
-            FocusLock.shared.lock()
-        } else {
-            FocusLock.shared.unlock()
-        }
         tickTask?.cancel()
         tickTask = Task { @MainActor in
             while !Task.isCancelled {
@@ -399,6 +414,104 @@ private struct WorkDurationSheet: View {
                 }
             }
         }
+    }
+}
+
+/// The timer taking over the whole screen: the same ring and controls as the
+/// docked view, plus a rotating panel of study goals underneath — mostly
+/// generic encouragement, but it surfaces the user's own stated goal too.
+private struct FullScreenTimerView<Ring: View, Controls: View>: View {
+    let ring: Ring
+    let controls: Controls
+    let studyGoal: String
+    let studiedTime: TimeInterval
+    let canEnd: Bool
+    let onEnd: () -> Void
+    let onMinimize: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                HStack {
+                    Button {
+                        Haptics.tap()
+                        onMinimize()
+                    } label: {
+                        Image(systemName: "arrow.down.right.and.arrow.up.left")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(10)
+                            .background(.white.opacity(0.08), in: Circle())
+                    }
+                    .accessibilityLabel("Exit full screen")
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+                ring
+                    .frame(maxHeight: .infinity)
+                    .padding(.horizontal, 24)
+
+                controls
+
+                MotivationalGoalsPanel(studyGoal: studyGoal)
+                    .padding(.horizontal)
+
+                Button("End Session", role: .destructive) { onEnd() }
+                    .buttonStyle(.bordered)
+                    .disabled(!canEnd)
+                    .padding(.bottom, 12)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+/// Cycles through encouraging study goals every few seconds; every fourth
+/// turn it surfaces the user's own "what I hope to achieve" answer instead,
+/// so their own reason to study resurfaces while they work.
+private struct MotivationalGoalsPanel: View {
+    let studyGoal: String
+
+    private static let genericGoals: [String] = [
+        "Stay focused — future you is counting on this.",
+        "Small steps now, big results later.",
+        "Discipline beats motivation. Keep going.",
+        "One page, one problem, one step at a time.",
+        "You don't have to be perfect, just consistent.",
+        "This hour is an investment in yourself.",
+        "Progress, not perfection.",
+        "Deep work now, deserved rest later."
+    ]
+
+    @State private var index = 0
+
+    private var showsOwnGoal: Bool {
+        !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && index % 4 == 3
+    }
+
+    private var currentText: String {
+        showsOwnGoal ? "Remember why: \(studyGoal)" : Self.genericGoals[index % Self.genericGoals.count]
+    }
+
+    var body: some View {
+        Text(currentText)
+            .font(.callout.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.secondary)
+            .id(index)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 70)
+            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .animation(.easeInOut(duration: 0.5), value: index)
+            .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+                index += 1
+            }
     }
 }
 

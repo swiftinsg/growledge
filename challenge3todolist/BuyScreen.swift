@@ -81,14 +81,26 @@ struct ShopRow: View {
     @ObservedObject private var store = GameStore.shared
 
     var body: some View {
-        let canBuy = store.points >= price
+        let stock = store.stockToday(id: id, price: price)
+        let canBuy = store.points >= price && stock > 0
         HStack(spacing: 12) {
             ItemIcon(id: id, size: 60)
+                .saturation(stock > 0 ? 1 : 0.15)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Theme.text)
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Theme.text)
+                    if stock <= 2 && stock > 0 {
+                        Text("RARE")
+                            .font(.system(size: 9, weight: .heavy))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.gold.opacity(0.85)))
+                            .foregroundStyle(.black)
+                    }
+                }
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(Theme.subtext)
@@ -96,13 +108,22 @@ struct ShopRow: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(canBuy ? Theme.gold : Theme.bad)
-                Text("You have: \(store.count(id))")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.subtext)
+                HStack(spacing: 8) {
+                    Text("You have: \(store.count(id))")
+                    Text(stock > 0 ? "In stock: \(stock)" : "Out of stock — check back tomorrow")
+                        .foregroundStyle(stock > 0 ? Theme.good : Theme.bad)
+                }
+                .font(.caption2)
+                .foregroundStyle(Theme.subtext)
             }
             Spacer()
             GameButton(title: "Buy", width: 72, height: 44) {
-                store.buy(id, price: price)
+                if store.buy(id, price: price) {
+                    SoundPlayer.coin()
+                } else {
+                    Haptics.warning()
+                    SoundPlayer.error()
+                }
             }
             .disabled(!canBuy)
             .opacity(canBuy ? 1 : 0.4)

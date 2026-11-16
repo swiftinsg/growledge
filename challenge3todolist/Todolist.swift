@@ -44,6 +44,7 @@ struct Todolist: View {
 
                 // Floating '+' Button at the Bottom-Right Corner
                 Button {
+                    Haptics.tap()
                     showingAddMenu = true
                 } label: {
                     Image(systemName: "plus")
@@ -57,6 +58,7 @@ struct Todolist: View {
                         .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1.5))
                         .shadow(color: .blue.opacity(0.5), radius: 10, x: 0, y: 4)
                 }
+                .bouncy(haptic: false)
                 .fadeIn(order: 2)
                 .padding(.trailing, 24)
                 .padding(.bottom, 24)
@@ -184,25 +186,47 @@ struct AddTaskView: View {
                 }
 
                 // A list of rows rather than a Picker menu, because menus
-                // draw their icons without colour.
-                Section("Subject") {
+                // draw their icons without colour. Each row is tinted with
+                // its own subject colour, and the chosen one fills solid so
+                // the assigned colour is unmistakable.
+                Section {
                     ForEach(subjects) { subject in
+                        let isSelected = selectedSubject?.id == subject.id
                         Button {
-                            selectedSubject = subject
+                            withAnimation(.snappy) { selectedSubject = subject }
                         } label: {
                             HStack(spacing: 10) {
                                 Circle()
                                     .fill(subject.color.color)
-                                    .frame(width: 14, height: 14)
+                                    .frame(width: 16, height: 16)
+                                    .overlay(Circle().stroke(.white.opacity(isSelected ? 0.8 : 0), lineWidth: 2))
                                 Text(subject.name)
-                                    .foregroundStyle(.primary)
+                                    .fontWeight(isSelected ? .bold : .regular)
+                                    .foregroundStyle(isSelected ? subject.color.color : .primary)
                                 Spacer()
-                                if selectedSubject?.id == subject.id {
-                                    Image(systemName: "checkmark")
+                                if isSelected {
+                                    Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(subject.color.color)
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
+                        .listRowBackground(isSelected ? subject.color.color.opacity(0.22) : Color.clear)
+                    }
+                } header: {
+                    HStack {
+                        Text("Subject")
+                        Text("Required")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(selectedSubject == nil ? Color.red : Color.green))
+                    }
+                } footer: {
+                    if selectedSubject == nil {
+                        Text("Pick a subject so this task gets the right colour.")
+                            .foregroundStyle(.red)
                     }
                 }
 

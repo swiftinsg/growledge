@@ -72,16 +72,8 @@ struct TaskGroup: Identifiable {
 final class TodoStore: ObservableObject {
     static let shared = TodoStore()
 
-    static let subjectsKey = "todo.subjects"
-    static let remindersKey = "todo.reminders"
-
-    private let defaults: UserDefaults
-
-    /// False while the saved data is being loaded. `didSet` on a @Published
-    /// property DOES run inside `init`, so without this guard loading the
-    /// subjects would save the still-empty task list over the real one, and
-    /// every task would be lost each time the app starts.
-    private var isLoaded = false
+    private static let subjectsKey = "todo.subjects"
+    private static let remindersKey = "todo.reminders"
 
     @Published var subjects: [Subject] = [] {
         didSet { save() }
@@ -90,11 +82,9 @@ final class TodoStore: ObservableObject {
         didSet { save() }
     }
 
-    /// Tasks whose "finishing" fade is playing right now (never saved).
-    @Published var finishingIDs: Set<UUID> = []
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init() {
+        // (didSet is not called while initialising, so loading doesn't re-save)
+        let defaults = UserDefaults.standard
         if let data = defaults.data(forKey: Self.subjectsKey),
            let saved = try? JSONDecoder().decode([Subject].self, from: data) {
             subjects = saved
@@ -103,11 +93,10 @@ final class TodoStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Reminder].self, from: data) {
             reminders = saved
         }
-        isLoaded = true
     }
 
     private func save() {
-        guard isLoaded else { return }
+        let defaults = UserDefaults.standard
         defaults.set(try? JSONEncoder().encode(subjects), forKey: Self.subjectsKey)
         defaults.set(try? JSONEncoder().encode(reminders), forKey: Self.remindersKey)
     }
@@ -138,8 +127,12 @@ final class TodoStore: ObservableObject {
         reminders[index].isCompleted.toggle()
         if reminders[index].isCompleted && !reminders[index].rewarded {
             reminders[index].rewarded = true
+            // Paid straight into the same `points` the garden shop spends,
+            // so task rewards and study rewards are always one balance.
             if DailyRewardLimiter(limit: CoinReward.maxRewardedTasksPerDay).claim() {
                 GameStore.shared.points += CoinReward.bonusPerTask
+                Haptics.success()
+                SoundPlayer.coin()
             }
         }
     }
