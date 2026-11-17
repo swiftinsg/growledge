@@ -20,8 +20,6 @@ struct Game: View {
     var onExit: () -> Void
 
     @ObservedObject private var store = GameStore.shared
-    // Reading the season here makes the whole garden redraw when it changes
-    @AppStorage(Season.storageKey) private var seasonRaw = Season.rainy.rawValue
     @State private var plotOffset = CGSize.zero
     @State private var savedOffset = CGSize.zero
     @State private var holding = false
@@ -30,6 +28,8 @@ struct Game: View {
     @State private var gardenFrame: CGRect = .zero
     @State private var showingBuy = false
     @State private var showingSell = false
+    @State private var showTornado = false
+    @AppStorage("hasPlantedOnce") private var hasPlantedOnce = false
 
     var body: some View {
         ZStack {
@@ -44,11 +44,14 @@ struct Game: View {
                 Rectangle().fill(Theme.gloom).allowsHitTesting(false)
                 WeatherLayer()
 
-                // Outline on the tile you are about to drop onto
+                // Highlight exactly where the dragged plant will land —
+                // filled, not just outlined, so it's unmistakable while dragging.
                 if let d = dragging, gardenFrame != .zero {
                     let spot = tileAt(d.location)
+                    let willFit = !isOccupied(spot)
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Theme.accent, lineWidth: 3)
+                        .fill((willFit ? Theme.good : Theme.bad).opacity(0.28))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(willFit ? Theme.good : Theme.bad, lineWidth: 3))
                         .frame(width: Theme.tileSize - 6, height: Theme.tileSize - 6)
                         .position(
                             x: (CGFloat(spot.col) + 0.5) * Theme.tileSize + plotOffset.width,
@@ -64,6 +67,49 @@ struct Game: View {
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { store.advance() }
         .onDisappear { store.save() }
+        .onChange(of: store.disasterEvent) { _, event in
+            guard let event else { return }
+            Haptics.warning()
+            SoundPlayer.error()
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) { showTornado = true }
+            showToast(event)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                withAnimation { showTornado = false }
+                store.disasterEvent = nil
+            }
+        }
+
+        // The tornado itself, spinning in briefly when it strikes.
+        .overlay {
+            if showTornado {
+                Image("Tornado")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 150, height: 150)
+                    .shadow(radius: 12)
+                    .rotationEffect(.degrees(showTornado ? 360 : 0))
+                    .animation(.linear(duration: 1.6).repeatForever(autoreverses: false), value: showTornado)
+                    .transition(.scale.combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
+
+        // One-time nudge until the player plants their first seed.
+        .overlay(alignment: .bottom) {
+            if !hasPlantedOnce && dragging == nil {
+                Label("Press and drag a seed from the right onto the garden to plant it", systemImage: "hand.draw.fill")
+                    .font(.footnote.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(Theme.card.opacity(0.95)))
+                    .overlay(Capsule().stroke(Theme.panelBorder, lineWidth: 1))
+                    .padding(.horizontal, 60)
+                    .padding(.bottom, 170)
+                    .transition(.opacity)
+            }
+        }
 
         // ==================================================
         // BUTTONS AND HUD: each .overlay is one spot on screen
@@ -75,21 +121,12 @@ struct Game: View {
                 .padding()
         }
 
-        // Relocate + change season (top right)
+        // Relocate + weather readout (top right)
         .overlay(alignment: .topTrailing) {
             VStack(spacing: 10) {
                 GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
-                // Cycles winter -> rainy -> sunlight
-                GameButton(icon: (Season(rawValue: seasonRaw) ?? .rainy).icon, width: 50, height: 50) {
-                    let next = (Season(rawValue: seasonRaw) ?? .rainy).next
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        seasonRaw = next.rawValue
-                    }
-                    let speedText = next.growthMultiplier == 1
-                        ? "normal speed"
-                        : "×\(next.growthMultiplier.formatted()) growth speed"
-                    showToast("\(next.label) — \(speedText)")
-                }
+                // Read-only — the weather changes on its own, nobody picks it.
+                WeatherBadge()
             }
             .padding()
         }
@@ -201,6 +238,12 @@ struct Game: View {
         return (Int(floor(x / Theme.tileSize)), Int(floor(y / Theme.tileSize)))
     }
 
+    // Whether a tile already has something planted on it.
+    func isOccupied(_ spot: (col: Int, row: Int)) -> Bool {
+        let t = store.tiles[tileKey(spot.col, spot.row)]
+        return t?.seed != nil || t?.sprinkler != nil
+    }
+
     func plant(_ id: String, atGlobal point: CGPoint) {
         guard gardenFrame != .zero else { return }
         // ignore drops on top of the inventory bar
@@ -210,6 +253,7 @@ struct Game: View {
         if store.place(id, col: spot.col, row: spot.row) {
             Haptics.tap()
             SoundPlayer.plant()
+            withAnimation { hasPlantedOnce = true }
         } else {
             Haptics.warning()
             showToast("That spot is taken, or it can't go here")
@@ -262,12 +306,25 @@ struct TileContent: View {
                 let timeLeft = (crop.growSeconds - tile.progress) / speed
 
                 VStack(spacing: 2) {
-                    Image(seed)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 30, height: 30)
-                        .scaleEffect(0.55 + 0.45 * f)
-                        .opacity(0.7 + 0.3 * f)
+                    Group {
+                        if let icon = crop.systemIcon {
+                            ZStack {
+                                Circle().fill(crop.iconColor.opacity(0.3))
+                                Image(systemName: icon)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundStyle(crop.iconColor)
+                                    .padding(7)
+                            }
+                        } else {
+                            Image(seed)
+                                .resizable()
+                                .scaledToFit()
+                        }
+                    }
+                    .frame(width: 30, height: 30)
+                    .scaleEffect(0.55 + 0.45 * f)
+                    .opacity(0.7 + 0.3 * f)
 
                     // progress bar
                     ZStack(alignment: .leading) {
@@ -325,6 +382,26 @@ struct TileContent: View {
             }
         }
         .frame(width: Theme.tileSize - 6, height: Theme.tileSize - 6)
+    }
+}
+
+/// Shows the current weather as a little read-only pill. It refreshes itself
+/// every few seconds so the random change is visible without reopening the screen.
+private struct WeatherBadge: View {
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { _ in
+            let season = Season.current
+            VStack(spacing: 2) {
+                Image(systemName: season.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                Text(season.label)
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(Theme.text)
+            .frame(width: 50, height: 50)
+            .background(Circle().fill(Theme.card.opacity(0.9)))
+            .overlay(Circle().stroke(Theme.panelBorder, lineWidth: 1))
+        }
     }
 }
 

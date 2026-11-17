@@ -42,6 +42,18 @@ struct BuyScreen: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         if type == .seeds {
+                            if let event = SeasonalEvent.current {
+                                EventBanner(event: event)
+                                ForEach(Catalog.availableEventCrops) { crop in
+                                    ShopRow(
+                                        id: "seed:\(crop.name)",
+                                        title: crop.name.capitalized + " Seeds",
+                                        subtitle: "Limited time · Grows in \(timeText(crop.growSeconds))",
+                                        price: crop.price
+                                    )
+                                }
+                                Divider().overlay(Theme.panelBorder).padding(.vertical, 4)
+                            }
                             ForEach(Catalog.crops) { crop in
                                 ShopRow(
                                     id: "seed:\(crop.name)",
@@ -68,8 +80,46 @@ struct BuyScreen: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
-        // The question when you arrive
-        
+        // Special shop music while you're browsing, then back to the garden's
+        // own playlist the moment you leave.
+        .onAppear {
+            MusicPlayer.shared.loop(Music.hollowEvening)
+        }
+        .onDisappear {
+            MusicPlayer.shared.playPlaylist(Music.gardenPlaylist)
+        }
+    }
+}
+
+/// Shown above the shop list while Halloween or Christmas is running.
+struct EventBanner: View {
+    let event: SeasonalEvent
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: event.icon)
+                .font(.title2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(event.title) Event")
+                    .font(.headline)
+                Text("These seeds are only here for a limited time!")
+                    .font(.caption)
+                    .opacity(0.85)
+            }
+            Spacer()
+        }
+        .foregroundStyle(.white)
+        .padding(12)
+        .background(
+            LinearGradient(
+                colors: event == .halloween
+                    ? [Color(red: 0.55, green: 0.25, blue: 0.75), Color(red: 0.95, green: 0.45, blue: 0.10)]
+                    : [Color(red: 0.70, green: 0.10, blue: 0.15), Color(red: 0.10, green: 0.45, blue: 0.30)],
+                startPoint: .leading, endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 16)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.3), lineWidth: 1))
     }
 }
 

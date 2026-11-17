@@ -89,21 +89,33 @@ struct GameButton: View {
     }
 }
 
-// Shows an item's image. Sprinklers get a colored circle.
+// Shows an item's image. Sprinklers and icon-only event crops get a colored circle.
 struct ItemIcon: View {
     let id: String
     var size: CGFloat = 44
 
     var body: some View {
         let info = ItemInfo(id: id)
+        let crop = Catalog.cropByName[info.name]
         ZStack {
             if info.kind == "gear", let tier = Int(info.name), let sp = Catalog.sprinkler(tier: tier) {
                 Circle().fill(sp.color.opacity(0.35))
+                Image("sprinkler")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(5)
+            } else if let crop, let icon = crop.systemIcon {
+                Circle().fill(crop.iconColor.opacity(0.32))
+                Image(systemName: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(crop.iconColor)
+                    .padding(size * 0.24)
+            } else {
+                Image(info.imageName)
+                    .resizable()
+                    .scaledToFit()
             }
-            Image(info.imageName)
-                .resizable()
-                .scaledToFit()
-                .padding(info.kind == "gear" ? 5 : 0)
         }
         .frame(width: size, height: size)
     }
@@ -216,6 +228,114 @@ extension View {
     }
     func readFrame(_ frame: Binding<CGRect>) -> some View {
         modifier(FrameReader(frame: frame))
+    }
+}
+
+// ---------- First-time tutorial ----------
+struct TutorialPage {
+    let icon: String
+    let title: String
+    let text: String
+    let tint: Color
+}
+
+/// A short, skippable walkthrough shown once, the first time the app opens
+/// after the two onboarding questions.
+struct TutorialOverlay: View {
+    var onDone: () -> Void
+
+    @State private var index = 0
+
+    private let pages: [TutorialPage] = [
+        TutorialPage(icon: "leaf.fill", title: "Welcome to your Garden",
+                     text: "Press and hold a seed on the right edge of the garden, then drag it onto an empty tile to plant it. The tile glows green when it's a good spot.",
+                     tint: Theme.good),
+        TutorialPage(icon: "hand.tap.fill", title: "Harvesting",
+                     text: "Tap any crop once it's ready to harvest just that one — or hold the \"Hold to Harvest All\" button to collect everything at once.",
+                     tint: Theme.gold),
+        TutorialPage(icon: "cart.fill", title: "Buy & Sell",
+                     text: "Use Buy to get new seeds and sprinklers — pricier items have limited daily stock. Use Sell to cash in crops you've harvested.",
+                     tint: Color(red: 0.55, green: 0.70, blue: 0.95)),
+        TutorialPage(icon: "timer", title: "Study Timer",
+                     text: "Tap Study to start a focus timer. Finishing a session earns points — the same currency you spend in the garden shop.",
+                     tint: .orange),
+        TutorialPage(icon: "checklist", title: "To-Do List",
+                     text: "Add tasks with a subject so they're colour coded. Completing one also earns points, synced with everything else.",
+                     tint: .blue),
+        TutorialPage(icon: "cloud.sun.rain.fill", title: "Seasons & Events",
+                     text: "Tap the season button to cycle sun, rain and winter — each changes how fast things grow. Watch for limited-time seasonal seeds too!",
+                     tint: Color(red: 0.70, green: 0.88, blue: 1.0))
+    ]
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.78).ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Spacer()
+
+                TabView(selection: $index) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { i, page in
+                        VStack(spacing: 18) {
+                            ZStack {
+                                Circle().fill(page.tint.opacity(0.25))
+                                Image(systemName: page.icon)
+                                    .font(.system(size: 40, weight: .semibold))
+                                    .foregroundStyle(page.tint)
+                            }
+                            .frame(width: 96, height: 96)
+
+                            Text(page.title)
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(.white)
+
+                            Text(page.text)
+                                .font(.body)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .padding(.horizontal, 24)
+                        }
+                        .tag(i)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .frame(height: 380)
+
+                Spacer()
+
+                HStack {
+                    Button("Skip") {
+                        Haptics.tap()
+                        onDone()
+                    }
+                    .foregroundStyle(.white.opacity(0.6))
+
+                    Spacer()
+
+                    Button {
+                        Haptics.tap()
+                        SoundPlayer.pop()
+                        if index < pages.count - 1 {
+                            withAnimation { index += 1 }
+                        } else {
+                            onDone()
+                        }
+                    } label: {
+                        Text(index < pages.count - 1 ? "Next" : "Let's go!")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 12)
+                            .background(Capsule().fill(Theme.good))
+                    }
+                    .bouncy(haptic: false)
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+            }
+        }
+        .transition(.opacity)
     }
 }
 

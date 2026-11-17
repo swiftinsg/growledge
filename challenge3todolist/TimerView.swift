@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// A Pomodoro timer styled after the Timer in Apple's Clock app.
 /// The user picks a work length (saved between launches); the break is
@@ -134,6 +135,7 @@ struct TimerView: View {
             // Stop the background loop; it restarts in onAppear if still running.
             tickTask?.cancel()
             tickTask = nil
+            if state != .running { MusicPlayer.shared.fadeOutAndStop() }
         }
     }
 
@@ -248,6 +250,7 @@ struct TimerView: View {
         remaining = totalDuration
         state = .running
         if phase == .work { segmentStart = .now }
+        MusicPlayer.shared.playPlaylist(Music.studyPlaylist)
         runCountdown()
     }
 
@@ -261,11 +264,13 @@ struct TimerView: View {
         }
         endDate = nil
         state = .paused
+        MusicPlayer.shared.pause()
     }
 
     private func resume() {
         state = .running
         if phase == .work { segmentStart = .now }
+        MusicPlayer.shared.resume()
         runCountdown()
     }
 
@@ -310,6 +315,7 @@ struct TimerView: View {
         endDate = nil
         remaining = 0
         state = .idle
+        MusicPlayer.shared.fadeOutAndStop()
     }
 
     /// Called when a phase runs out: work hands over to break and vice versa,
@@ -430,40 +436,54 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     let onMinimize: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                HStack {
-                    Button {
-                        Haptics.tap()
-                        onMinimize()
-                    } label: {
-                        Image(systemName: "arrow.down.right.and.arrow.up.left")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(10)
-                            .background(.white.opacity(0.08), in: Circle())
+                VStack(spacing: 0) {
+                    // Top half: the clock.
+                    VStack(spacing: 14) {
+                        HStack {
+                            Button {
+                                Haptics.tap()
+                                onMinimize()
+                            } label: {
+                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .padding(10)
+                                    .background(.white.opacity(0.08), in: Circle())
+                            }
+                            .accessibilityLabel("Exit full screen")
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+
+                        ring
+                            .padding(.horizontal, 28)
+                            .frame(maxHeight: .infinity)
+
+                        controls
+                            .padding(.bottom, 4)
                     }
-                    .accessibilityLabel("Exit full screen")
-                    Spacer()
+                    .frame(height: geo.size.height / 2)
+
+                    Divider().overlay(.white.opacity(0.08))
+
+                    // Bottom half: the rotating study goals, given the full half.
+                    MotivationalGoalsPanel(studyGoal: studyGoal)
+                        .frame(height: geo.size.height / 2)
+                        .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-
-                ring
-                    .frame(maxHeight: .infinity)
-                    .padding(.horizontal, 24)
-
-                controls
-
-                MotivationalGoalsPanel(studyGoal: studyGoal)
-                    .padding(.horizontal)
-
+            }
+            .safeAreaInset(edge: .bottom) {
                 Button("End Session", role: .destructive) { onEnd() }
                     .buttonStyle(.bordered)
                     .disabled(!canEnd)
-                    .padding(.bottom, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(.black)
             }
         }
         .preferredColorScheme(.dark)
@@ -498,18 +518,23 @@ private struct MotivationalGoalsPanel: View {
     }
 
     var body: some View {
-        Text(currentText)
-            .font(.callout.weight(.semibold))
-            .multilineTextAlignment(.center)
-            .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.secondary)
-            .id(index)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, minHeight: 70)
-            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .animation(.easeInOut(duration: 0.5), value: index)
-            .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+        VStack(spacing: 14) {
+            Image(systemName: showsOwnGoal ? "flag.checkered" : "quote.opening")
+                .font(.title2)
+                .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : .secondary)
+
+            Text(currentText)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.white.opacity(0.85))
+                .padding(.horizontal, 28)
+        }
+        .id(index)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.white.opacity(0.04))
+        .animation(.easeInOut(duration: 0.5), value: index)
+        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
                 index += 1
             }
     }

@@ -96,3 +96,130 @@ class SoundPlayer {
         return data
     }
 }
+
+// =====================================================================
+// MARK: - Background music (your own bundled tracks, looped)
+// =====================================================================
+
+/// Filenames for the music you added to the project. Make sure each file is
+/// dragged into Xcode with its Target Membership checkbox ticked, or the
+/// app will simply find nothing to play and stay silent for that track.
+enum Music {
+    static let garden = "Garden Music.mp3"
+    static let moogCity = "Moog City.mp3"
+    static let ariaMath = "C418 - Aria Math (Minecraft Volume Beta).mp3"
+    static let sundowner = "SUNDOWNER - Brandon Works Map Theme Forsaken OST.mp3"
+    // Funny track — garden only, kept out of the study playlist on purpose.
+    static let verityDisstrack = "Verity Disstrack - Official Music Video.mp3"
+    static let hollowEvening = "A Hollow Evening Halloween Event Track (FORSAKEN).mp3"
+
+    /// Plays while the garden is on screen.
+    static let gardenPlaylist = [garden, sundowner, verityDisstrack]
+    /// Plays while a study session is running. No Verity Disstrack here —
+    /// it's a funny song, not one for focusing.
+    static let studyPlaylist = [moogCity, ariaMath, sundowner]
+}
+
+/// Loops background music — the garden theme, or the study playlist.
+/// Separate from `SoundPlayer`'s short one-shot effects so the two never
+/// interrupt each other.
+final class MusicPlayer: NSObject, AVAudioPlayerDelegate {
+    static let shared = MusicPlayer()
+
+    private var player: AVAudioPlayer?
+    private var playlist: [String] = []
+    private var playlistIndex = 0
+    private var fadeWorkItems: [DispatchWorkItem] = []
+
+    private override init() {
+        super.init()
+        // .ambient + mixWithOthers so this never fights the short sound
+        // effects (or the user's own music/silent switch) for the speaker.
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
+    /// Loops a single track forever. Calling this again with the same track
+    /// while it's already playing does nothing, so it's safe to call from
+    /// `onAppear`.
+    func loop(_ filename: String, volume: Float = 0.35) {
+        guard let url = Self.url(for: filename) else { return }
+        if player?.url == url, player?.isPlaying == true { return }
+        playlist = []
+        start(url: url, loopForever: true, volume: volume)
+    }
+
+    /// Plays a list of tracks back to back, looping the whole list forever.
+    func playPlaylist(_ filenames: [String], volume: Float = 0.3) {
+        guard !filenames.isEmpty else { return }
+        playlist = filenames
+        playlistIndex = 0
+        guard let url = Self.url(for: filenames[0]) else { return }
+        start(url: url, loopForever: false, volume: volume)
+    }
+
+    func pause() { player?.pause() }
+    func resume() { player?.play() }
+
+    func stop() {
+        cancelFades()
+        player?.stop()
+        player = nil
+        playlist = []
+    }
+
+    /// Smoothly fades the current track out, then stops it.
+    func fadeOutAndStop(duration: TimeInterval = 0.8) {
+        guard let player, player.isPlaying else { stop(); return }
+        cancelFades()
+        let steps = 12
+        let startVolume = player.volume
+        for i in 0...steps {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, let current = self.player else { return }
+                let remaining = 1 - Double(i) / Double(steps)
+                current.volume = startVolume * Float(remaining)
+                if i == steps { self.stop() }
+            }
+            fadeWorkItems.append(work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration * Double(i) / Double(steps), execute: work)
+        }
+    }
+
+    private func cancelFades() {
+        fadeWorkItems.forEach { $0.cancel() }
+        fadeWorkItems.removeAll()
+    }
+
+    private func start(url: URL, loopForever: Bool, volume: Float) {
+        cancelFades()
+        guard let p = try? AVAudioPlayer(contentsOf: url) else { return }
+        p.delegate = self
+        p.numberOfLoops = loopForever ? -1 : 0
+        p.volume = volume
+        p.prepareToPlay()
+        p.play()
+        player = p
+    }
+
+    private static func url(for filename: String) -> URL? {
+        let name = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension
+        if !ext.isEmpty, let url = Bundle.main.url(forResource: name, withExtension: ext) {
+            return url
+        }
+        for candidate in ["mp3", "m4a", "wav", "aac"] {
+            if let url = Bundle.main.url(forResource: name, withExtension: candidate) { return url }
+        }
+        return nil
+    }
+
+    // Advances to the next track in the playlist when one finishes.
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        guard !playlist.isEmpty else { return }
+        playlistIndex = (playlistIndex + 1) % playlist.count
+        if let url = Self.url(for: playlist[playlistIndex]) {
+            start(url: url, loopForever: false, volume: player.volume)
+        }
+    }
+}
