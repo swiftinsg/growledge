@@ -64,6 +64,10 @@ struct TimerView: View {
         phase == .work ? workDuration : breakDuration
     }
 
+    /// True during the break phase — used to make the screen feel like a
+    /// reward (confetti, brighter colors, a fun track) instead of more work.
+    private var isBreak: Bool { phase == .rest }
+
     /// While idle, show the full length of the upcoming phase.
     private var displayedTime: TimeInterval {
         state == .idle ? phaseDuration : remaining
@@ -112,6 +116,7 @@ struct TimerView: View {
                 studyGoal: studyGoal,
                 studiedTime: studiedTime,
                 canEnd: studiedTime > 0,
+                isBreak: isBreak,
                 onEnd: endSession,
                 onMinimize: { isFullScreen = false }
             )
@@ -143,6 +148,13 @@ struct TimerView: View {
 
     private var countdownRing: some View {
         ZStack {
+            // A joyful little confetti sprinkle behind the ring during breaks.
+            if isBreak {
+                ConfettiLayer()
+                    .clipShape(Circle())
+                    .opacity(0.8)
+            }
+
             Circle()
                 .stroke(Color.gray.opacity(0.25), lineWidth: 8)
 
@@ -153,7 +165,7 @@ struct TimerView: View {
                 .animation(.linear(duration: 0.1), value: progress)
 
             VStack(spacing: 8) {
-                Text(phase.title)
+                Text(isBreak ? "🎉 \(phase.title) Time!" : phase.title)
                     .font(.headline)
                     .foregroundStyle(phase.tint)
 
@@ -250,7 +262,12 @@ struct TimerView: View {
         remaining = totalDuration
         state = .running
         if phase == .work { segmentStart = .now }
-        MusicPlayer.shared.playPlaylist(Music.studyPlaylist)
+        // Breaks get their own fun track; focus time gets the study playlist.
+        if phase == .work {
+            MusicPlayer.shared.playPlaylist(Music.studyPlaylist)
+        } else {
+            MusicPlayer.shared.loop(Music.verityDisstrack)
+        }
         runCountdown()
     }
 
@@ -423,22 +440,85 @@ private struct WorkDurationSheet: View {
     }
 }
 
+/// A little piece of falling, tumbling confetti.
+private struct ConfettiPiece {
+    let x: Double        // 0...1 across the width
+    let speed: Double
+    let phase: Double
+    let spin: Double
+    let size: Double
+    let color: Color
+}
+
+/// A cheerful sprinkle of falling confetti — used to make the break phase
+/// feel like a reward rather than more of the same screen.
+private struct ConfettiLayer: View {
+    private static let colors: [Color] = [
+        Color(red: 1.00, green: 0.45, blue: 0.45),
+        Color(red: 1.00, green: 0.78, blue: 0.30),
+        Color(red: 0.45, green: 0.85, blue: 0.55),
+        Color(red: 0.40, green: 0.70, blue: 1.00),
+        Color(red: 0.85, green: 0.55, blue: 1.00)
+    ]
+
+    private static let pieces: [ConfettiPiece] = (0..<40).map { _ in
+        ConfettiPiece(
+            x: Double.random(in: 0...1),
+            speed: Double.random(in: 0.25...0.55),
+            phase: Double.random(in: 0...1),
+            spin: Double.random(in: 1...4) * (Bool.random() ? 1 : -1),
+            size: Double.random(in: 5...10),
+            color: colors.randomElement() ?? .yellow
+        )
+    }
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                for piece in Self.pieces {
+                    let progress = (t * piece.speed + piece.phase).truncatingRemainder(dividingBy: 1)
+                    let y = progress * (size.height + 30) - 15
+                    let x = piece.x * size.width + sin(t * piece.speed * 2 + piece.phase * 6) * 14
+                    var transform = CGAffineTransform(translationX: x, y: y)
+                    transform = transform.rotated(by: t * piece.spin)
+                    var square = context
+                    square.transform = transform
+                    let rect = CGRect(x: -piece.size / 2, y: -piece.size / 2, width: piece.size, height: piece.size * 0.6)
+                    square.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(piece.color.opacity(0.9)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// The timer taking over the whole screen: the same ring and controls as the
-/// docked view, plus a rotating panel of study goals underneath — mostly
-/// generic encouragement, but it surfaces the user's own stated goal too.
+/// docked view, plus a rotating panel underneath — study goals while
+/// focused, or a joyful "take a breather" panel with confetti on break.
 private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     let ring: Ring
     let controls: Controls
     let studyGoal: String
     let studiedTime: TimeInterval
     let canEnd: Bool
+    var isBreak: Bool = false
     let onEnd: () -> Void
     let onMinimize: () -> Void
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color.black.ignoresSafeArea()
+                if isBreak {
+                    LinearGradient(
+                        colors: [Color(red: 0.12, green: 0.28, blue: 0.22), Color(red: 0.05, green: 0.12, blue: 0.10)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                    ConfettiLayer().ignoresSafeArea()
+                } else {
+                    Color.black.ignoresSafeArea()
+                }
 
                 VStack(spacing: 0) {
                     // Top half: the clock.
@@ -471,11 +551,15 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
 
                     Divider().overlay(.white.opacity(0.08))
 
-                    // Bottom half: the rotating study goals, given the full half.
-                    MotivationalGoalsPanel(studyGoal: studyGoal)
+                    // Bottom half: study goals while focused, or a joyful
+                    // "take a breather" panel with Verity Disstrack playing on break.
+                    MotivationalGoalsPanel(studyGoal:
+                                            
+                                            studyGoal, isBreak: isBreak)
                         .frame(height: geo.size.height / 2)
                         .frame(maxWidth: .infinity)
                 }
+                
             }
             .safeAreaInset(edge: .bottom) {
                 Button("End Session", role: .destructive) { onEnd() }
@@ -490,11 +574,13 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     }
 }
 
-/// Cycles through encouraging study goals every few seconds; every fourth
-/// turn it surfaces the user's own "what I hope to achieve" answer instead,
-/// so their own reason to study resurfaces while they work.
+/// Cycles through encouraging study goals every few seconds while focused;
+/// every fourth turn it surfaces the user's own "what I hope to achieve"
+/// answer instead. On a break it switches to cheerful, no-pressure messages
+/// instead, since a break isn't the place for more studying prompts.
 private struct MotivationalGoalsPanel: View {
     let studyGoal: String
+    var isBreak: Bool = false
 
     private static let genericGoals: [String] = [
         "Stay focused — future you is counting on this.",
@@ -507,33 +593,44 @@ private struct MotivationalGoalsPanel: View {
         "Deep work now, deserved rest later."
     ]
 
+    private static let breakMessages: [String] = [
+        "🎉 Nice work! Stretch, breathe, and enjoy this.",
+        "☕️ Grab a drink, look away from the screen for a bit.",
+        "🙌 You earned this break — make it count.",
+        "💃 Dance it out for a second if you want to.",
+        "🌤️ Rest the eyes, rest the mind. Back soon!",
+        "🎶 Enjoy the tune — no studying allowed right now."
+    ]
+
     @State private var index = 0
 
     private var showsOwnGoal: Bool {
-        !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && index % 4 == 3
+        !isBreak && !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && index % 4 == 3
     }
 
     private var currentText: String {
-        showsOwnGoal ? "Remember why: \(studyGoal)" : Self.genericGoals[index % Self.genericGoals.count]
+        if isBreak { return Self.breakMessages[index % Self.breakMessages.count] }
+        return showsOwnGoal ? "Remember why: \(studyGoal)" : Self.genericGoals[index % Self.genericGoals.count]
     }
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: showsOwnGoal ? "flag.checkered" : "quote.opening")
+            Image(systemName: isBreak ? "party.popper.fill" : (showsOwnGoal ? "flag.checkered" : "quote.opening"))
                 .font(.title2)
-                .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : .secondary)
+                .foregroundStyle(isBreak ? Color(red: 0.55, green: 0.95, blue: 0.65) : (showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : .secondary))
 
             Text(currentText)
                 .font(.title3.weight(.semibold))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.white.opacity(0.85))
+                .foregroundStyle(isBreak ? Color(red: 0.75, green: 1.0, blue: 0.82) : (showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.white.opacity(0.85)))
                 .padding(.horizontal, 28)
         }
         .id(index)
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        // A plain cross-fade — no sliding/flying in, just dissolves between quotes.
+        .transition(.opacity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.opacity(0.04))
-        .animation(.easeInOut(duration: 0.5), value: index)
+        .animation(.easeInOut(duration: 0.7), value: index)
         .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
                 index += 1
             }

@@ -83,6 +83,7 @@ struct BuyScreen: View {
         // Special shop music while you're browsing, then back to the garden's
         // own playlist the moment you leave.
         .onAppear {
+            SoundPlayer.whoosh()
             MusicPlayer.shared.loop(Music.hollowEvening)
         }
         .onDisappear {

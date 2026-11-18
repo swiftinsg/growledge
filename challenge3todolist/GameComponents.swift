@@ -90,9 +90,12 @@ struct GameButton: View {
 }
 
 // Shows an item's image. Sprinklers and icon-only event crops get a colored circle.
+// A non-`.none` mutation tints the artwork and adds a little name badge, so a
+// Golden or Rotten crop is unmistakable at a glance.
 struct ItemIcon: View {
     let id: String
     var size: CGFloat = 44
+    var mutation: Mutation = .none
 
     var body: some View {
         let info = ItemInfo(id: id)
@@ -105,16 +108,33 @@ struct ItemIcon: View {
                     .scaledToFit()
                     .padding(5)
             } else if let crop, let icon = crop.systemIcon {
-                Circle().fill(crop.iconColor.opacity(0.32))
+                Circle().fill((mutation.tint ?? crop.iconColor).opacity(0.32))
                 Image(systemName: icon)
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(crop.iconColor)
+                    .foregroundStyle(mutation.tint ?? crop.iconColor)
                     .padding(size * 0.24)
             } else {
                 Image(info.imageName)
                     .resizable()
                     .scaledToFit()
+                    .colorMultiply(mutation.tint ?? .white)
+            }
+
+            if mutation != .none {
+                VStack {
+                    Spacer()
+                    Text(mutation.label)
+                        .font(.system(size: max(7, size * 0.18), weight: .heavy))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill((mutation.tint ?? .black).opacity(0.9)))
+                        .overlay(Capsule().stroke(.white.opacity(0.55), lineWidth: 0.5))
+                }
+                .offset(y: size * 0.14)
             }
         }
         .frame(width: size, height: size)
@@ -194,11 +214,18 @@ struct ItemDrag: ViewModifier {
                 .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
                 .onChanged { value in
                     if case .second(true, let drag?) = value {
+                        // Only the moment the drag actually begins, not every
+                        // frame it continues.
+                        if dragging == nil {
+                            Haptics.tap()
+                            SoundPlayer.pickUp()
+                        }
                         dragging = DragInfo(id: id, location: drag.location)
                     }
                 }
                 .onEnded { value in
                     if case .second(true, let drag?) = value {
+                        SoundPlayer.dropDown()
                         onDrop(drag.location)
                     }
                     dragging = nil
@@ -263,7 +290,7 @@ struct TutorialOverlay: View {
                      text: "Add tasks with a subject so they're colour coded. Completing one also earns points, synced with everything else.",
                      tint: .blue),
         TutorialPage(icon: "cloud.sun.rain.fill", title: "Seasons & Events",
-                     text: "Tap the season button to cycle sun, rain and winter — each changes how fast things grow. Watch for limited-time seasonal seeds too!",
+                     text: "The weather changes on its own every so often — sun, rain and winter each affect how fast things grow, and rain can bring the odd tornado. Watch for limited-time seasonal seeds too!",
                      tint: Color(red: 0.70, green: 0.88, blue: 1.0))
     ]
 

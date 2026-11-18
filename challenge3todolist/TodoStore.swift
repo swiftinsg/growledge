@@ -132,7 +132,7 @@ final class TodoStore: ObservableObject {
             if DailyRewardLimiter(limit: CoinReward.maxRewardedTasksPerDay).claim() {
                 GameStore.shared.points += CoinReward.bonusPerTask
                 Haptics.success()
-                SoundPlayer.coin()
+                SoundPlayer.taskDone()
             }
         }
     }

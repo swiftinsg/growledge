@@ -24,6 +24,7 @@ struct SellScreen: View {
         let id = UUID()
         let itemID: String
         let weight: Double
+        let mutation: Mutation
         let unitPrice: Int
     }
 
@@ -79,6 +80,7 @@ struct SellScreen: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { SoundPlayer.whoosh() }
     }
 
     private var sellTray: some View {
@@ -108,7 +110,9 @@ struct SellScreen: View {
                             removeFromTray(item)
                         } label: {
                             VStack(spacing: 2) {
-                                ItemIcon(id: item.itemID, size: 40)
+                                // Tinted to its mutation, so a Golden or
+                                // Rotten crop in the tray is obvious at a glance.
+                                ItemIcon(id: item.itemID, size: 40, mutation: item.mutation)
                                 Text("\(Theme.coin)\(item.unitPrice)")
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundStyle(Theme.gold)
@@ -160,27 +164,34 @@ struct SellScreen: View {
             SoundPlayer.error()
             return
         }
-        tray.append(TraySellItem(itemID: id, weight: taken.weight, unitPrice: taken.unitPrice))
+        tray.append(TraySellItem(itemID: id, weight: taken.weight, mutation: taken.mutation, unitPrice: taken.unitPrice))
         Haptics.tap()
-        SoundPlayer.pop()
+        if taken.mutation != .none {
+            SoundPlayer.mutation()
+        } else {
+            SoundPlayer.pop()
+        }
     }
 
     private func removeFromTray(_ item: TraySellItem) {
         tray.removeAll { $0.id == item.id }
-        store.returnFromTray(item.itemID, weight: item.weight)
+        store.returnFromTray(item.itemID, weight: item.weight, mutation: item.mutation)
         Haptics.tap()
+        SoundPlayer.remove()
     }
 
     private func clearTray() {
-        for item in tray { store.returnFromTray(item.itemID, weight: item.weight) }
+        for item in tray { store.returnFromTray(item.itemID, weight: item.weight, mutation: item.mutation) }
+        SoundPlayer.remove()
         withAnimation { tray.removeAll() }
     }
 
     private func confirmSell() {
         guard !tray.isEmpty else { return }
+        let soldSomethingShiny = tray.contains { $0.mutation.priceMultiplier >= 2.5 }
         store.points += trayTotal
         Haptics.success()
-        SoundPlayer.coin()
+        soldSomethingShiny ? SoundPlayer.fanfare() : SoundPlayer.coin()
         withAnimation { tray.removeAll() }
     }
 }
@@ -197,26 +208,49 @@ private struct SellSourceRow: View {
     var body: some View {
         let info = ItemInfo(id: id)
         let count = store.count(id)
-        let weights = store.cropWeights[id] ?? []
+        let units = store.cropHarvests[id] ?? []
         let isBeingDragged = dragging?.id == id
 
         HStack(spacing: 12) {
-            ItemIcon(id: id, size: 50)
-            VStack(alignment: .leading, spacing: 2) {
+            // The icon tints to whichever mutation is next in line to be
+            // sold (the one `takeForTray` would actually hand out), so
+            // there's a preview of what dragging this row gets you.
+            ItemIcon(id: id, size: 50, mutation: units.first?.mutation ?? .none)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(info.displayName)
                     .font(.headline)
                     .foregroundStyle(Theme.text)
-                if info.kind == "crop", let avg = averageWeight(weights) {
-                    Text("Avg. weight \(avg.formatted(.number.precision(.fractionLength(1))))x")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtext)
-                }
-                Text("You have: \(count)")
+
+                // One compact summary line instead of two separate captions.
+                Text(summaryLine(count: count, units: units))
                     .font(.caption2)
                     .foregroundStyle(Theme.subtext)
+                    .lineLimit(1)
+
+                // Only the two most valuable mutations currently in stock,
+                // so this never grows taller than a single badge row.
+                let mutated = mutationCounts(units)
+                if !mutated.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(mutated.prefix(2), id: \.0) { mutation, n in
+                            Text("\(mutation.label) ×\(n)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill((mutation.tint ?? .gray).opacity(0.85)))
+                        }
+                        if mutated.count > 2 {
+                            Text("+\(mutated.count - 2)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(Theme.subtext)
+                        }
+                    }
+                }
             }
             Spacer()
             Image(systemName: "hand.draw.fill")
+                .font(.subheadline)
                 .foregroundStyle(Theme.subtext)
         }
         .padding(10)
@@ -226,8 +260,27 @@ private struct SellSourceRow: View {
         .itemDrag(id: id, dragging: $dragging, onDrop: onDrop)
     }
 
+    /// "You have: 6" for non-crops, or "6 in stock · avg 1.1x" for crops,
+    /// so weight and count share one line instead of two.
+    private func summaryLine(count: Int, units: [HarvestedUnit]) -> String {
+        guard !units.isEmpty, let avg = averageWeight(units.map(\.weight)) else {
+            return "You have: \(count)"
+        }
+        return "\(count) in stock · avg \(avg.formatted(.number.precision(.fractionLength(1))))x"
+    }
+
     private func averageWeight(_ weights: [Double]) -> Double? {
         guard !weights.isEmpty else { return nil }
         return weights.reduce(0, +) / Double(weights.count)
+    }
+
+    /// How many of each (non-plain) mutation are currently in stock for
+    /// this crop, most valuable first.
+    private func mutationCounts(_ units: [HarvestedUnit]) -> [(Mutation, Int)] {
+        var counts: [Mutation: Int] = [:]
+        for unit in units where unit.mutation != .none {
+            counts[unit.mutation, default: 0] += 1
+        }
+        return counts.sorted { $0.key.priceMultiplier > $1.key.priceMultiplier }
     }
 }

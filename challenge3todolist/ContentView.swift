@@ -49,6 +49,9 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.5), value: hasCompletedOnboarding)
         // The whole app uses the moody garden look, which suits dark mode
         .preferredColorScheme(.dark)
+        // All text throughout the app (every screen, every .font(...) that
+        // doesn't pick its own design) renders in a serif typeface.
+        .fontDesign(.serif)
         // Plants keep growing while the app is in the background or closed:
         // catch up when we come back, and save when we leave.
         .onChange(of: scenePhase) { _, phase in
@@ -78,6 +81,13 @@ struct ContentView: View {
                 .tabItem {
                     Label("To-Do List", systemImage: "checklist")
                 }
+
+            NavigationStack {
+                RelaxView()
+            }
+            .tabItem {
+                Label("Relax", systemImage: "wind")
+            }
         }
     }
 

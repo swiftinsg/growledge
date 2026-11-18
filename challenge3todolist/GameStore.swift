@@ -45,6 +45,102 @@ struct Tile: Codable {
     var progress: Double = 0
 }
 
+/// A cosmetic (and price-changing) mutation a crop can come out with when
+/// harvested. Mostly metals, rarer the shinier — plus two "spoiled" ones
+/// that knock the price down instead.
+enum Mutation: String, Codable, CaseIterable {
+    case none
+    case copper, bronze, silver, gold, platinum, titanium, mercury, chrome
+    case rotten, infested
+
+    /// Multiplies the crop's sell price on top of its weight.
+    var priceMultiplier: Double {
+        switch self {
+        case .none: 1.0
+        case .copper: 1.2
+        case .bronze: 1.45
+        case .silver: 1.85
+        case .gold: 2.5
+        case .platinum: 3.5
+        case .titanium: 5.0
+        case .mercury: 8.0
+        case .chrome: 13.0
+        case .rotten: 0.35
+        case .infested: 0.2
+        }
+    }
+
+    /// How common this mutation is when a crop is harvested — bigger number,
+    /// more common. The shinier metals are deliberately very rare.
+    var rarity: Double {
+        switch self {
+        case .none: 52
+        case .copper: 15
+        case .bronze: 10
+        case .silver: 6.5
+        case .gold: 3.5
+        case .platinum: 1.8
+        case .titanium: 0.9
+        case .mercury: 0.3
+        case .chrome: 0.1
+        case .rotten: 6.5
+        case .infested: 3.4
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .none: ""
+        case .copper: "Copper"
+        case .bronze: "Bronzed"
+        case .silver: "Silver"
+        case .gold: "Golden"
+        case .platinum: "Platinum"
+        case .titanium: "Titanium"
+        case .mercury: "Mercurial"
+        case .chrome: "Chrome"
+        case .rotten: "Rotten"
+        case .infested: "Infested"
+        }
+    }
+
+    /// Tint laid over the crop's artwork so a mutation is visible at a glance.
+    var tint: Color? {
+        switch self {
+        case .none: nil
+        case .copper: Color(red: 0.85, green: 0.53, blue: 0.30)
+        case .bronze: Color(red: 0.80, green: 0.50, blue: 0.20)
+        case .silver: Color(red: 0.78, green: 0.80, blue: 0.84)
+        case .gold: Color(red: 1.0, green: 0.84, blue: 0.0)
+        case .platinum: Color(red: 0.90, green: 0.92, blue: 0.96)
+        case .titanium: Color(red: 0.58, green: 0.63, blue: 0.68)
+        case .mercury: Color(red: 0.78, green: 0.83, blue: 0.88)
+        case .chrome: Color(red: 0.80, green: 0.95, blue: 1.0)
+        case .rotten: Color(red: 0.40, green: 0.34, blue: 0.14)
+        case .infested: Color(red: 0.45, green: 0.55, blue: 0.16)
+        }
+    }
+
+    /// A random mutation, weighted by `rarity`. Overwhelmingly `.none`.
+    static func random() -> Mutation {
+        let total = allCases.reduce(0.0) { $0 + $1.rarity }
+        var r = Double.random(in: 0..<total)
+        for m in allCases {
+            if r < m.rarity { return m }
+            r -= m.rarity
+        }
+        return .none
+    }
+}
+
+/// One harvested unit of a crop: its random weight and whatever mutation it
+/// came out with. A FIFO queue of these per crop id is what the Sell screen
+/// draws from.
+struct HarvestedUnit: Codable {
+    var weight: Double
+    var mutation: Mutation = .none
+}
+
 final class GameStore: ObservableObject {
     static let shared = GameStore()
 
@@ -55,9 +151,9 @@ final class GameStore: ObservableObject {
     }
     @Published var inventory: [String: Int]
     @Published var tiles: [String: Tile]
-    /// Each harvested crop gets its own random weight, which changes how
-    /// much it sells for. One FIFO queue of weights per crop id.
-    @Published var cropWeights: [String: [Double]]
+    /// Each harvested crop gets its own random weight and mutation, which
+    /// together change how much it sells for. One FIFO queue per crop id.
+    @Published var cropHarvests: [String: [HarvestedUnit]]
     /// Set briefly whenever a tornado destroys a crop, so the Garden screen
     /// can show a warning and the tornado art, then clears itself.
     @Published var disasterEvent: String? = nil
@@ -89,7 +185,15 @@ final class GameStore: ObservableObject {
         if d.object(forKey: "points") == nil { d.set(Theme.startingPoints, forKey: "points") }
         points = d.integer(forKey: "points")
         inventory = (d.dictionary(forKey: "garden.inventory") as? [String: Int]) ?? [:]
-        cropWeights = (d.dictionary(forKey: "garden.cropWeights") as? [String: [Double]]) ?? [:]
+        if let data = d.data(forKey: "garden.cropHarvests"),
+           let saved = try? JSONDecoder().decode([String: [HarvestedUnit]].self, from: data) {
+            cropHarvests = saved
+        } else if let legacy = d.dictionary(forKey: "garden.cropWeights") as? [String: [Double]] {
+            // Carries over weights saved before mutations existed.
+            cropHarvests = legacy.mapValues { $0.map { HarvestedUnit(weight: $0, mutation: .none) } }
+        } else {
+            cropHarvests = [:]
+        }
         if let data = d.data(forKey: "garden.tiles"),
            let saved = try? JSONDecoder().decode([String: Tile].self, from: data) {
             tiles = saved
@@ -101,7 +205,7 @@ final class GameStore: ObservableObject {
     func save() {
         let d = UserDefaults.standard
         d.set(inventory, forKey: "garden.inventory")
-        d.set(cropWeights, forKey: "garden.cropWeights")
+        d.set(try? JSONEncoder().encode(cropHarvests), forKey: "garden.cropHarvests")
         d.set(try? JSONEncoder().encode(tiles), forKey: "garden.tiles")
         d.set(lastUpdate, forKey: "garden.lastUpdate")
     }
@@ -297,12 +401,19 @@ final class GameStore: ObservableObject {
 
     // ---- harvesting ----
     /// Harvests every ready tile at once (the "Hold to Harvest" button).
-    func harvest() -> Int {
+    /// Returns how many were harvested, plus the most valuable mutation
+    /// among them (if any), so the caller can celebrate a lucky pull.
+    @discardableResult
+    func harvest() -> (count: Int, bestMutation: Mutation?) {
         var updated = tiles
         var n = 0
+        var best: Mutation?
         for (key, tile) in tiles where isReady(tile) {
             if let seed = tile.seed {
-                addHarvestedCrop(seed)
+                let mutation = addHarvestedCrop(seed)
+                if mutation != .none, (best == nil || mutation.priceMultiplier > best!.priceMultiplier) {
+                    best = mutation
+                }
                 updated[key] = nil
                 n += 1
             }
@@ -311,55 +422,66 @@ final class GameStore: ObservableObject {
             tiles = updated
             save()
         }
-        return n
+        return (n, best)
     }
 
     /// Harvests just the one tile at `key`, if it's ready. Lets the player
-    /// pick a single crop instead of collecting everything at once.
+    /// pick a single crop instead of collecting everything at once. Returns
+    /// the crop's name and the mutation it came out with, if it was ready.
     @discardableResult
-    func harvestTile(_ key: String) -> Bool {
-        guard let tile = tiles[key], isReady(tile), let seed = tile.seed else { return false }
-        addHarvestedCrop(seed)
+    func harvestTile(_ key: String) -> (name: String, mutation: Mutation)? {
+        guard let tile = tiles[key], isReady(tile), let seed = tile.seed else { return nil }
+        let mutation = addHarvestedCrop(seed)
         tiles[key] = nil
         save()
-        return true
+        return (seed, mutation)
     }
 
     /// Adds one unit of a harvested crop with its own random weight
-    /// (0.7x–1.4x), which later changes how much it sells for.
-    private func addHarvestedCrop(_ seed: String) {
+    /// (0.7x–1.4x) and a random mutation, which together change how much it
+    /// sells for. Returns the mutation it came out with.
+    @discardableResult
+    private func addHarvestedCrop(_ seed: String) -> Mutation {
         let id = "crop:\(seed)"
         add(id)
-        cropWeights[id, default: []].append(Double.random(in: 0.7...1.4))
+        let mutation = Mutation.random()
+        cropHarvests[id, default: []].append(HarvestedUnit(weight: Double.random(in: 0.7...1.4), mutation: mutation))
+        return mutation
     }
 
     // ---- selling via the drag-to-tray Sell screen ----
     /// Pulls one unit of `id` out of inventory for the sell tray. Returns its
-    /// weight (1.0 for anything that isn't a crop) and the price it would
-    /// sell for right now — or nil if there isn't one, or it can't be sold.
-    func takeForTray(_ id: String) -> (weight: Double, unitPrice: Int)? {
+    /// weight (1.0 for anything that isn't a crop), its mutation, and the
+    /// price it would sell for right now — or nil if there isn't one, or it
+    /// can't be sold.
+    func takeForTray(_ id: String) -> (weight: Double, mutation: Mutation, unitPrice: Int)? {
         guard count(id) > 0, let base = sellValue(id) else { return nil }
         let info = ItemInfo(id: id)
         var weight = 1.0
+        var mutation = Mutation.none
         if info.kind == "crop" {
-            var q = cropWeights[id] ?? []
+            var q = cropHarvests[id] ?? []
             if !q.isEmpty {
-                weight = q.removeFirst()
-                cropWeights[id] = q
+                let unit = q.removeFirst()
+                weight = unit.weight
+                mutation = unit.mutation
+                cropHarvests[id] = q
             }
         }
         remove(id)
-        let unitPrice = info.kind == "crop" ? max(1, Int((Double(base) * weight).rounded())) : base
+        let unitPrice = info.kind == "crop"
+            ? max(1, Int((Double(base) * weight * mutation.priceMultiplier).rounded()))
+            : base
         save()
-        return (weight, unitPrice)
+        return (weight, mutation, unitPrice)
     }
 
     /// Puts an item taken for the tray back into inventory (the player
     /// removed it from the tray before selling).
-    func returnFromTray(_ id: String, weight: Double) {
+    func returnFromTray(_ id: String, weight: Double, mutation: Mutation = .none) {
         add(id)
         if ItemInfo(id: id).kind == "crop" {
-            cropWeights[id, default: []].append(weight)
+            cropHarvests[id, default: []].insert(HarvestedUnit(weight: weight, mutation: mutation), at: 0)
         }
         save()
     }

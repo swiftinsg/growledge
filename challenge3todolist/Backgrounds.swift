@@ -47,12 +47,11 @@ struct GardenBackground: View {
         .ignoresSafeArea()
         // Catch the garden up the moment the Home tab appears, so it never
         // looks frozen after time spent on another tab.
+        // NOTE: deliberately no music here — the Home tab background is just
+        // a preview of the garden. Music only starts once you actually tap
+        // in and open the Game screen (see Game.swift's onAppear).
         .onAppear {
             store.advance()
-            MusicPlayer.shared.playPlaylist(Music.gardenPlaylist)
-        }
-        .onDisappear {
-            MusicPlayer.shared.fadeOutAndStop()
         }
     }
 }

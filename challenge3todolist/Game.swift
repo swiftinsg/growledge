@@ -65,12 +65,21 @@ struct Game: View {
             .simultaneousGesture(panGesture)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { store.advance() }
-        .onDisappear { store.save() }
+        .onAppear {
+            store.advance()
+            // Music only plays while you're actually in the garden game —
+            // not on the Home tab behind it.
+            MusicPlayer.shared.playPlaylist(Music.gardenPlaylist)
+        }
+        .onDisappear {
+            store.save()
+            // Leaving the game back to Home should leave things quiet again.
+            MusicPlayer.shared.fadeOutAndStop()
+        }
         .onChange(of: store.disasterEvent) { _, event in
             guard let event else { return }
             Haptics.warning()
-            SoundPlayer.error()
+            SoundPlayer.alarm()
             withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) { showTornado = true }
             showToast(event)
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
@@ -192,7 +201,7 @@ struct Game: View {
             VStack(spacing: 18) {
                 Button {
                     Haptics.tap()
-                    SoundPlayer.pop()
+                    SoundPlayer.shopBell()
                     showingBuy = true
                 } label: {
                     ButtonLook(title: "Buy", icon: "cart.fill", width: 120, height: 46)
@@ -261,18 +270,30 @@ struct Game: View {
     }
 
     func harvest() {
-        let n = store.harvest()
-        if n > 0 { Haptics.success() } else { Haptics.warning() }
-        SoundPlayer.harvest()
-        showToast(n > 0 ? "Harvested \(n) crop\(n == 1 ? "" : "s")" : "Nothing is ready yet")
+        let result = store.harvest()
+        if result.count > 0 { Haptics.success() } else { Haptics.warning() }
+        if let best = result.bestMutation, best != .none {
+            // A rare pull gets its own bigger sound on top of the usual one.
+            SoundPlayer.harvest()
+            SoundPlayer.mutation()
+            showToast("Harvested \(result.count) crop\(result.count == 1 ? "" : "s") — ✨ a \(best.label) one!")
+        } else {
+            SoundPlayer.harvest()
+            showToast(result.count > 0 ? "Harvested \(result.count) crop\(result.count == 1 ? "" : "s")" : "Nothing is ready yet")
+        }
     }
 
     /// Tapping a single ready tile harvests just that crop.
     func harvestOne(_ key: String) {
-        if store.harvestTile(key) {
+        if let result = store.harvestTile(key) {
             Haptics.success()
             SoundPlayer.harvest()
-            showToast("Harvested 1 crop")
+            if result.mutation != .none {
+                SoundPlayer.mutation()
+                showToast("✨ Harvested a \(result.mutation.label) crop!")
+            } else {
+                showToast("Harvested 1 crop")
+            }
         }
     }
 
@@ -391,16 +412,15 @@ private struct WeatherBadge: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 5)) { _ in
             let season = Season.current
-            VStack(spacing: 2) {
-                Image(systemName: season.icon)
-                    .font(.system(size: 18, weight: .semibold))
-                Text(season.label)
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .foregroundStyle(Theme.text)
-            .frame(width: 50, height: 50)
-            .background(Circle().fill(Theme.card.opacity(0.9)))
-            .overlay(Circle().stroke(Theme.panelBorder, lineWidth: 1))
+            // Icon-only — a quiet status indicator, not a second button, so
+            // it doesn't visually compete with the Relocate button above it.
+            Image(systemName: season.icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.text)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Theme.card.opacity(0.9)))
+                .overlay(Circle().stroke(Theme.panelBorder, lineWidth: 1))
+                .accessibilityLabel(season.label)
         }
     }
 }
