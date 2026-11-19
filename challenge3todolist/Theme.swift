@@ -9,15 +9,16 @@ import SwiftUI
 // MARK: - 1. THEME  (change colors, sizes and the button image here)
 // =====================================================================
 enum Theme {
-    // Season-dependent colours: they follow the chosen season (see Seasons.swift)
-    static var grass: Color { Season.current.grass }
-    static var soilDark: Color { Season.current.soilDark }
-    static var soilLight: Color { Season.current.soilLight }
+    // The garden ground never changes colour, whatever the season
+    static let grass = Color(red: 0.20, green: 0.34, blue: 0.30)
+    static let soilDark = Color(red: 0.20, green: 0.16, blue: 0.14)
+    static let soilLight = Color(red: 0.30, green: 0.24, blue: 0.20)
+
+    // Season-dependent colours: they follow the current season (see Seasons.swift)
     static var backdropTop: Color { Season.current.backdropTop }
     static var backdropBottom: Color { Season.current.backdropBottom }
     static var card: Color { Season.current.card }
     static var accent: Color { Season.current.accent }
-    static var gloom: Color { Season.current.gloom }
 
     // Colours that stay the same in every season
     static let panelBorder = Color.white.opacity(0.12)

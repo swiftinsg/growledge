@@ -83,30 +83,6 @@ enum Season: String, CaseIterable {
         }
     }
 
-    var grass: Color {
-        switch self {
-        case .rainy: Color(red: 0.20, green: 0.34, blue: 0.30)
-        case .sunny: Color(red: 0.30, green: 0.50, blue: 0.28)
-        case .snowy: Color(red: 0.78, green: 0.84, blue: 0.88)
-        }
-    }
-
-    var soilDark: Color {
-        switch self {
-        case .rainy: Color(red: 0.20, green: 0.16, blue: 0.14)
-        case .sunny: Color(red: 0.36, green: 0.25, blue: 0.16)
-        case .snowy: Color(red: 0.30, green: 0.27, blue: 0.27)
-        }
-    }
-
-    var soilLight: Color {
-        switch self {
-        case .rainy: Color(red: 0.30, green: 0.24, blue: 0.20)
-        case .sunny: Color(red: 0.48, green: 0.34, blue: 0.22)
-        case .snowy: Color(red: 0.42, green: 0.38, blue: 0.37)
-        }
-    }
-
     var backdropTop: Color {
         switch self {
         case .rainy: Color(red: 0.10, green: 0.14, blue: 0.20)
@@ -136,15 +112,6 @@ enum Season: String, CaseIterable {
         case .rainy: Color(red: 0.50, green: 0.72, blue: 0.95)
         case .sunny: Color(red: 0.98, green: 0.80, blue: 0.40)
         case .snowy: Color(red: 0.70, green: 0.88, blue: 1.0)
-        }
-    }
-
-    /// Dark tint laid over the garden (heavier in the rain).
-    var gloom: Color {
-        switch self {
-        case .rainy: Color.black.opacity(0.35)
-        case .sunny: Color.clear
-        case .snowy: Color.black.opacity(0.12)
         }
     }
 

@@ -40,8 +40,7 @@ struct Game: View {
                 // Tap any ready tile to harvest just that one crop.
                 GardenTilesLayer(store: store, offset: plotOffset, onTapTile: harvestOne)
 
-                // Seasonal tint + weather (snow, rain or sun rays)
-                Rectangle().fill(Theme.gloom).allowsHitTesting(false)
+                // Weather (snow, rain or sun rays)
                 WeatherLayer()
 
                 // Highlight exactly where the dragged plant will land —

@@ -22,8 +22,6 @@ struct StudyView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
-
             VStack(spacing: 12) {
                 HStack {
                     Text("Studying")

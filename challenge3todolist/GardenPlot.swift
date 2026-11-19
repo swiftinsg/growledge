@@ -37,7 +37,7 @@ struct GardenPlot: View, Animatable {
             Canvas { context, size in
                 // One continuous ground colour (no checkerboard) with soft
                 // mottled texture, so it reads as grass/soil, not a grid.
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(season.grass))
+                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.grass))
 
                 let firstCol = Int(floor(-offset.width / tileSize)) - 1
                 let lastCol = Int(floor((size.width - offset.width) / tileSize)) + 1
@@ -59,7 +59,7 @@ struct GardenPlot: View, Animatable {
                         let n = groundNoise(col, row)
                         context.fill(
                             Path(rect),
-                            with: .color(season.soilDark.opacity(0.10 + n * 0.10))
+                            with: .color(Theme.soilDark.opacity(0.10 + n * 0.10))
                         )
 
                         // A seasonal decoration, scattered sparsely and never on
