@@ -99,13 +99,15 @@ enum Catalog {
         return Dictionary(all.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
     }()
 
-    // 5 sprinkler tiers. They speed up plants in the 3x3 area around them.
+    // 7 sprinkler tiers. They speed up plants in the 3x3 area around them.
     static let sprinklers: [Sprinkler] = [
-        Sprinkler(tier: 1, name: "Tiny Sprinkler",    price: 500,       speed: 1.5, color: .green),
-        Sprinkler(tier: 2, name: "Super Sprinkler",   price: 5_000,     speed: 2,   color: .blue),
-        Sprinkler(tier: 3, name: "Mega Sprinkler",    price: 50_000,    speed: 3,   color: .purple),
-        Sprinkler(tier: 4, name: "Ultra Sprinkler",   price: 500_000,   speed: 5,   color: .orange),
-        Sprinkler(tier: 5, name: "Rainbow Sprinkler", price: 5_000_000, speed: 10,  color: .pink)
+        Sprinkler(tier: 1, name: "Tiny Sprinkler",     price: 500,         speed: 1.5, color: .green),
+        Sprinkler(tier: 2, name: "Super Sprinkler",    price: 5_000,       speed: 2,   color: .blue),
+        Sprinkler(tier: 3, name: "Mega Sprinkler",     price: 50_000,      speed: 3,   color: .purple),
+        Sprinkler(tier: 4, name: "Ultra Sprinkler",    price: 500_000,     speed: 5,   color: .orange),
+        Sprinkler(tier: 5, name: "Rainbow Sprinkler",  price: 5_000_000,   speed: 10,  color: .pink),
+        Sprinkler(tier: 6, name: "Galaxy Sprinkler",   price: 25_000_000,  speed: 16,  color: .indigo),
+        Sprinkler(tier: 7, name: "Celestial Sprinkler", price: 100_000_000, speed: 25, color: .yellow)
     ]
 
     static func sprinkler(tier: Int) -> Sprinkler? {

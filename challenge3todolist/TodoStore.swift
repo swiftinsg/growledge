@@ -130,7 +130,9 @@ final class TodoStore: ObservableObject {
             // Paid straight into the same `points` the garden shop spends,
             // so task rewards and study rewards are always one balance.
             if DailyRewardLimiter(limit: CoinReward.maxRewardedTasksPerDay).claim() {
-                GameStore.shared.points += CoinReward.bonusPerTask
+                // Pays the coins and also counts toward the Task Crusher
+                // achievement and today's "finish N tasks" quest.
+                GameStore.shared.completeTaskReward()
                 Haptics.success()
                 SoundPlayer.taskDone()
             }

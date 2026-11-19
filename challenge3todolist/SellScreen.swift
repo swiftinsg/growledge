@@ -189,7 +189,7 @@ struct SellScreen: View {
     private func confirmSell() {
         guard !tray.isEmpty else { return }
         let soldSomethingShiny = tray.contains { $0.mutation.priceMultiplier >= 2.5 }
-        store.points += trayTotal
+        store.earn(trayTotal)
         Haptics.success()
         soldSomethingShiny ? SoundPlayer.fanfare() : SoundPlayer.coin()
         withAnimation { tray.removeAll() }

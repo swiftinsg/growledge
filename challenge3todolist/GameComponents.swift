@@ -383,3 +383,327 @@ struct DragGhost: View {
         .allowsHitTesting(false)
     }
 }
+
+// =====================================================================
+// MARK: - 10. GAME HUB  (Daily Quests + Mutation Dex + Achievements)
+// =====================================================================
+
+enum HubSection: String, CaseIterable, Identifiable {
+    case quests = "Quests"
+    case dex = "Dex"
+    case achievements = "Achievements"
+    var id: String { rawValue }
+}
+
+/// One entry point (opened from a single button) for everything that isn't
+/// a day-to-day action: today's quests, the mutation collection log, and
+/// the achievement list — kept as tabs in one sheet instead of three
+/// separate buttons cluttering the Home or Garden screens.
+struct GameHubView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var section: HubSection = .quests
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("Section", selection: $section) {
+                    ForEach(HubSection.allCases) { s in
+                        Text(s.rawValue).tag(s)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
+
+                ScrollView {
+                    switch section {
+                    case .quests: DailyQuestsSection()
+                    case .dex: MutationDexSection()
+                    case .achievements: AchievementsSection()
+                    }
+                }
+            }
+            .background(AppBackground())
+            .navigationTitle("Hub")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// ---------- Daily Quests ----------
+
+private struct DailyQuestsSection: View {
+    @ObservedObject private var store = GameStore.shared
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("Resets every day — come back tomorrow for 3 new ones.")
+                .font(.caption)
+                .foregroundStyle(Theme.subtext)
+                .multilineTextAlignment(.center)
+            ForEach(store.todayQuests) { template in
+                QuestRow(template: template)
+            }
+        }
+        .padding()
+    }
+}
+
+private struct QuestRow: View {
+    let template: QuestTemplate
+    @ObservedObject private var store = GameStore.shared
+
+    private var progress: Double { store.questProgress(for: template.kind) }
+    private var done: Bool { progress >= template.target }
+    private var claimed: Bool { store.isQuestClaimed(template) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill((claimed ? Theme.good : Theme.accent).opacity(0.3))
+                Image(systemName: claimed ? "checkmark" : template.icon)
+                    .foregroundStyle(claimed ? Theme.good : Theme.text)
+            }
+            .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(template.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.text)
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.15))
+                    Capsule().fill(claimed ? Theme.good : Theme.accent)
+                        .frame(width: max(6, 120 * min(progress / template.target, 1)))
+                }
+                .frame(width: 120, height: 6)
+                Text("\(Int(min(progress, template.target)))/\(Int(template.target)) · \(Theme.coin)\(template.reward)")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtext)
+            }
+
+            Spacer()
+
+            if claimed {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(Theme.good)
+            } else if done {
+                GameButton(title: "Claim", width: 90, height: 38) {
+                    _ = store.claimQuest(template)
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card.opacity(0.9)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.panelBorder, lineWidth: 1))
+    }
+}
+
+// ---------- Mutation Dex ----------
+
+private struct MutationDexSection: View {
+    @ObservedObject private var store = GameStore.shared
+    private var totalMutations: Int { Mutation.allCases.count - 1 } // minus .none
+
+    var body: some View {
+        LazyVStack(spacing: 8) {
+            ForEach(Catalog.cropNames, id: \.self) { name in
+                NavigationLink {
+                    MutationDexCropDetail(cropName: name)
+                } label: {
+                    HStack(spacing: 12) {
+                        ItemIcon(id: "crop:\(name)", size: 44)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(name.capitalized)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.text)
+                            Text("\(foundCount(name))/\(totalMutations) mutations found")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtext)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtext)
+                    }
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card.opacity(0.9)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.panelBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding()
+    }
+
+    private func foundCount(_ name: String) -> Int {
+        store.discoveredMutations.filter { $0.hasPrefix("\(name)|") }.count
+    }
+}
+
+private struct MutationDexCropDetail: View {
+    let cropName: String
+    @ObservedObject private var store = GameStore.shared
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(Mutation.allCases.filter { $0 != .none }, id: \.self) { mutation in
+                    let discovered = store.discoveredMutations.contains("\(cropName)|\(mutation.rawValue)")
+                    HStack(spacing: 12) {
+                        ItemIcon(id: "crop:\(cropName)", size: 44, mutation: discovered ? mutation : .none)
+                            .saturation(discovered ? 1 : 0)
+                            .opacity(discovered ? 1 : 0.35)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(discovered ? mutation.label : "???")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(discovered ? Theme.text : Theme.subtext)
+                            Text(discovered
+                                 ? "x\(mutation.priceMultiplier.formatted(.number.precision(.fractionLength(0...2)))) price"
+                                 : "Not discovered yet")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtext)
+                        }
+                        Spacer()
+                        if discovered {
+                            Circle().fill(mutation.tint ?? .gray).frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(Theme.subtext)
+                        }
+                    }
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card.opacity(0.9)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.panelBorder, lineWidth: 1))
+                }
+            }
+            .padding()
+        }
+        .background(AppBackground())
+        .navigationTitle(cropName.capitalized)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// ---------- Achievements ----------
+
+private struct AchievementsSection: View {
+    @ObservedObject private var store = GameStore.shared
+
+    var body: some View {
+        LazyVStack(spacing: 8) {
+            ForEach(Achievement.all) { achievement in
+                let unlocked = store.unlockedAchievements.contains(achievement.id)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill((unlocked ? Theme.gold : Theme.panelBorder).opacity(0.3))
+                        Image(systemName: unlocked ? achievement.icon : "lock.fill")
+                            .foregroundStyle(unlocked ? Theme.gold : Theme.subtext)
+                    }
+                    .frame(width: 44, height: 44)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(achievement.title)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(unlocked ? Theme.text : Theme.subtext)
+                        Text(achievement.detail)
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtext)
+                    }
+                    Spacer()
+                    if unlocked {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.good)
+                    }
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card.opacity(unlocked ? 0.95 : 0.7)))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(unlocked ? Theme.gold.opacity(0.6) : Theme.panelBorder, lineWidth: unlocked ? 2 : 1))
+            }
+        }
+        .padding()
+    }
+}
+
+// ---------- "Achievement unlocked" toast ----------
+
+/// A banner any screen can show when `GameStore.shared.pendingAchievementUnlock`
+/// becomes non-nil (ContentView watches it app-wide, so it pops up no matter
+/// which tab you're on when something unlocks).
+struct AchievementUnlockBanner: View {
+    let achievement: Achievement
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Theme.gold.opacity(0.9))
+                Image(systemName: achievement.icon)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 44, height: 44)
+            .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 1.5))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("ACHIEVEMENT UNLOCKED")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundStyle(Theme.subtext)
+                Text(achievement.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.text)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.gold.opacity(0.7), lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+        .padding(.horizontal, 24)
+    }
+}
+
+/// A small pill button that opens the Hub, with a badge showing how many of
+/// today's quests are finished and ready to claim (so it's worth tapping).
+struct HubButton: View {
+    @ObservedObject private var store = GameStore.shared
+    @Binding var showingHub: Bool
+
+    private var claimableCount: Int {
+        store.todayQuests.filter { store.questProgress(for: $0.kind) >= $0.target && !store.isQuestClaimed($0) }.count
+    }
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            SoundPlayer.select()
+            showingHub = true
+        } label: {
+            VStack(spacing: 0) {
+                Image(systemName: "scroll.fill")
+                    .font(.title2)
+                    .foregroundStyle(claimableCount > 0 ? Theme.gold : Theme.text)
+                Text("Hub")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .frame(width: 60, height: 54)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.5), lineWidth: 1.5))
+            .overlay(alignment: .topTrailing) {
+                if claimableCount > 0 {
+                    Text("\(claimableCount)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(Circle().fill(Theme.bad))
+                        .offset(x: 6, y: -6)
+                }
+            }
+        }
+        .bouncy(haptic: false)
+    }
+}

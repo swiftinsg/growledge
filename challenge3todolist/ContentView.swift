@@ -21,6 +21,9 @@ struct ContentView: View {
 
     // The study log drives both the progress bar and the streak.
     @ObservedObject private var log = StudyLogStore.shared
+    // Watched here (not just in the Hub) so an achievement unlock banner can
+    // pop up no matter which tab is open when it happens.
+    @ObservedObject private var store = GameStore.shared
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -28,6 +31,7 @@ struct ContentView: View {
     @State private var showBar = true
     @State private var showStreak = true
     @State private var showButton = true
+    @State private var showingHub = false
 
     var body: some View {
         Group {
@@ -62,6 +66,24 @@ struct ContentView: View {
                 GameStore.shared.save()
             default: break
             }
+        }
+        // Pops up over whatever's on screen — garden, study, to-do, anywhere —
+        // the instant an achievement unlocks, then clears itself after a beat.
+        .overlay(alignment: .top) {
+            if let achievement = store.pendingAchievementUnlock {
+                AchievementUnlockBanner(achievement: achievement)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+                            withAnimation { store.pendingAchievementUnlock = nil }
+                        }
+                    }
+            }
+        }
+        .animation(.spring(response: 0.5, dampingFraction: 0.75), value: store.pendingAchievementUnlock?.id)
+        .sheet(isPresented: $showingHub) {
+            GameHubView()
         }
     }
 
@@ -144,6 +166,14 @@ struct ContentView: View {
                             .fadeIn(order: 1)
 
                         streakBadge
+                            .opacity(showStreak ? 1 : 0)
+                            .scaleEffect(showStreak ? 1 : 0.5)
+                            .blur(radius: showStreak ? 0 : 10)
+                            .fadeIn(order: 2)
+
+                        // Today's quests, the Mutation Dex and Achievements —
+                        // all behind this one button instead of three.
+                        HubButton(showingHub: $showingHub)
                             .opacity(showStreak ? 1 : 0)
                             .scaleEffect(showStreak ? 1 : 0.5)
                             .blur(radius: showStreak ? 0 : 10)

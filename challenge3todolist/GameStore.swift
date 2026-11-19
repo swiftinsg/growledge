@@ -141,6 +141,88 @@ struct HarvestedUnit: Codable {
     var mutation: Mutation = .none
 }
 
+// =====================================================================
+// MARK: - Achievements  (one-time unlocks for lifetime milestones)
+// =====================================================================
+
+/// A one-time milestone. `isUnlocked` reads whatever `GameStore` stat (or
+/// `StudyLogStore` streak) it needs at the moment it's checked.
+struct Achievement: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let icon: String
+    let isUnlocked: (GameStore) -> Bool
+
+    static let all: [Achievement] = [
+        Achievement(id: "first_harvest", title: "First Harvest", detail: "Harvest your very first crop.", icon: "leaf.fill") {
+            $0.lifetimeCropsHarvested >= 1
+        },
+        Achievement(id: "green_thumb", title: "Green Thumb", detail: "Harvest 100 crops in total.", icon: "leaf.circle.fill") {
+            $0.lifetimeCropsHarvested >= 100
+        },
+        Achievement(id: "master_farmer", title: "Master Farmer", detail: "Harvest 1,000 crops in total.", icon: "crown.fill") {
+            $0.lifetimeCropsHarvested >= 1000
+        },
+        Achievement(id: "shiny_hunter", title: "Shiny Hunter", detail: "Discover a Titanium, Mercurial or Chrome mutation.", icon: "sparkles") { store in
+            store.discoveredMutations.contains { entry in
+                let parts = entry.split(separator: "|")
+                guard parts.count == 2, let m = Mutation(rawValue: String(parts[1])) else { return false }
+                return [.titanium, .mercury, .chrome].contains(m)
+            }
+        },
+        Achievement(id: "collector", title: "Collector", detail: "Discover 10 different mutations.", icon: "square.grid.3x3.fill") {
+            $0.discoveredMutations.count >= 10
+        },
+        Achievement(id: "study_novice", title: "Study Novice", detail: "Study for a total of 30 minutes.", icon: "book.fill") {
+            $0.lifetimeStudySeconds >= 1800
+        },
+        Achievement(id: "study_veteran", title: "Study Veteran", detail: "Study for a total of 10 hours.", icon: "graduationcap.fill") {
+            $0.lifetimeStudySeconds >= 36_000
+        },
+        Achievement(id: "task_crusher", title: "Task Crusher", detail: "Finish 50 to-do tasks.", icon: "checkmark.seal.fill") {
+            $0.lifetimeTasksCompleted >= 50
+        },
+        Achievement(id: "week_warrior", title: "Week Warrior", detail: "Keep a 7-day study streak.", icon: "flame.fill") { _ in
+            StudyLogStore.shared.currentStreak() >= 7
+        },
+        Achievement(id: "rich_farmer", title: "Rich Farmer", detail: "Earn 100,000 coins in total.", icon: "dollarsign.circle.fill") {
+            $0.lifetimeCoinsEarned >= 100_000
+        }
+    ]
+}
+
+// =====================================================================
+// MARK: - Daily Quests  (a few small rotating goals, reset every day)
+// =====================================================================
+
+enum QuestKind: String {
+    case harvest, study, tasks, plant
+}
+
+struct QuestTemplate: Identifiable {
+    let id: String
+    let kind: QuestKind
+    let target: Double
+    let title: String
+    let icon: String
+    let reward: Int
+}
+
+enum DailyQuests {
+    /// The full pool of possible quests — 3 are picked from this (deterministically,
+    /// so everyone sees the same 3 all day) each day.
+    static let pool: [QuestTemplate] = [
+        QuestTemplate(id: "harvest10", kind: .harvest, target: 10, title: "Harvest 10 crops", icon: "basket.fill", reward: 200),
+        QuestTemplate(id: "harvest25", kind: .harvest, target: 25, title: "Harvest 25 crops", icon: "basket.fill", reward: 450),
+        QuestTemplate(id: "study15", kind: .study, target: 15, title: "Study for 15 minutes", icon: "book.fill", reward: 250),
+        QuestTemplate(id: "study30", kind: .study, target: 30, title: "Study for 30 minutes", icon: "book.fill", reward: 500),
+        QuestTemplate(id: "tasks2", kind: .tasks, target: 2, title: "Finish 2 to-do tasks", icon: "checkmark.circle.fill", reward: 200),
+        QuestTemplate(id: "tasks4", kind: .tasks, target: 4, title: "Finish 4 to-do tasks", icon: "checkmark.circle.fill", reward: 400),
+        QuestTemplate(id: "plant5", kind: .plant, target: 5, title: "Plant 5 seeds", icon: "leaf.fill", reward: 150)
+    ]
+}
+
 final class GameStore: ObservableObject {
     static let shared = GameStore()
 
@@ -158,6 +240,27 @@ final class GameStore: ObservableObject {
     /// can show a warning and the tornado art, then clears itself.
     @Published var disasterEvent: String? = nil
     private var ticks = 0
+
+    // ---- lifetime + daily stats (Mutation Dex, Daily Quests, Achievements) ----
+    /// "cropName|mutationRawValue" for every mutation ever discovered, so the
+    /// Mutation Dex can show it even after the crop itself has been sold.
+    @Published var discoveredMutations: Set<String> = []
+    @Published var unlockedAchievements: Set<String> = []
+    /// "dayNumber.questID" for quests already claimed today (and every day
+    /// before — tiny strings, never worth pruning).
+    @Published var claimedQuestIDs: Set<String> = []
+    @Published var lifetimeCropsHarvested = 0
+    @Published var lifetimeTasksCompleted = 0
+    @Published var lifetimeStudySeconds: Double = 0
+    @Published var lifetimeCoinsEarned = 0
+    @Published var dailyCropsHarvested = 0
+    @Published var dailyTasksCompleted = 0
+    @Published var dailyStudySeconds: Double = 0
+    @Published var dailySeedsPlanted = 0
+    private var dailyStatsDay = 0
+    /// Set the moment a new achievement unlocks, so any screen can show a
+    /// celebratory banner; the view that shows it clears this back to nil.
+    @Published var pendingAchievementUnlock: Achievement?
 
     // Plants grow all the time, not only while the garden screen is open
     private var growTimer: Timer?
@@ -200,6 +303,24 @@ final class GameStore: ObservableObject {
         } else {
             tiles = [:]
         }
+
+        discoveredMutations = Set((d.array(forKey: "stats.discoveredMutations") as? [String]) ?? [])
+        unlockedAchievements = Set((d.array(forKey: "stats.unlockedAchievements") as? [String]) ?? [])
+        claimedQuestIDs = Set((d.array(forKey: "stats.claimedQuestIDs") as? [String]) ?? [])
+        lifetimeCropsHarvested = d.integer(forKey: "stats.lifetimeCropsHarvested")
+        lifetimeTasksCompleted = d.integer(forKey: "stats.lifetimeTasksCompleted")
+        lifetimeStudySeconds = d.double(forKey: "stats.lifetimeStudySeconds")
+        lifetimeCoinsEarned = d.integer(forKey: "stats.lifetimeCoinsEarned")
+        dailyCropsHarvested = d.integer(forKey: "stats.dailyCropsHarvested")
+        dailyTasksCompleted = d.integer(forKey: "stats.dailyTasksCompleted")
+        dailyStudySeconds = d.double(forKey: "stats.dailyStudySeconds")
+        dailySeedsPlanted = d.integer(forKey: "stats.dailySeedsPlanted")
+        // Not calling dayNumber() here — it's an instance method, and every
+        // stored property must already have a value before `self` can be
+        // used, so the same "days since 1970" math is inlined instead.
+        dailyStatsDay = d.object(forKey: "stats.dailyStatsDay") != nil
+            ? d.integer(forKey: "stats.dailyStatsDay")
+            : Int(Date().timeIntervalSince1970 / 86400)
     }
 
     func save() {
@@ -208,6 +329,120 @@ final class GameStore: ObservableObject {
         d.set(try? JSONEncoder().encode(cropHarvests), forKey: "garden.cropHarvests")
         d.set(try? JSONEncoder().encode(tiles), forKey: "garden.tiles")
         d.set(lastUpdate, forKey: "garden.lastUpdate")
+
+        d.set(Array(discoveredMutations), forKey: "stats.discoveredMutations")
+        d.set(Array(unlockedAchievements), forKey: "stats.unlockedAchievements")
+        d.set(Array(claimedQuestIDs), forKey: "stats.claimedQuestIDs")
+        d.set(lifetimeCropsHarvested, forKey: "stats.lifetimeCropsHarvested")
+        d.set(lifetimeTasksCompleted, forKey: "stats.lifetimeTasksCompleted")
+        d.set(lifetimeStudySeconds, forKey: "stats.lifetimeStudySeconds")
+        d.set(lifetimeCoinsEarned, forKey: "stats.lifetimeCoinsEarned")
+        d.set(dailyCropsHarvested, forKey: "stats.dailyCropsHarvested")
+        d.set(dailyTasksCompleted, forKey: "stats.dailyTasksCompleted")
+        d.set(dailyStudySeconds, forKey: "stats.dailyStudySeconds")
+        d.set(dailySeedsPlanted, forKey: "stats.dailySeedsPlanted")
+        d.set(dailyStatsDay, forKey: "stats.dailyStatsDay")
+    }
+
+    /// Coins coming IN (a sale, a study reward, a task, a quest) — unlike
+    /// spending, this also counts toward `lifetimeCoinsEarned` (for the Rich
+    /// Farmer achievement) and re-checks every achievement, since several of
+    /// them depend on the stats this money came from.
+    func earn(_ amount: Int) {
+        guard amount != 0 else { return }
+        points += amount
+        if amount > 0 { lifetimeCoinsEarned += amount }
+        checkAchievements()
+        save()
+    }
+
+    /// Resets the daily-quest counters the moment the calendar day changes.
+    /// Cheap to call often (just one Int comparison) — called from `advance()`
+    /// so it's checked constantly without needing its own timer.
+    private func ensureDailyReset() {
+        let today = dayNumber()
+        guard today != dailyStatsDay else { return }
+        dailyStatsDay = today
+        dailyCropsHarvested = 0
+        dailyTasksCompleted = 0
+        dailyStudySeconds = 0
+        dailySeedsPlanted = 0
+        save()
+    }
+
+    // ---- achievements ----
+    /// Checks every not-yet-unlocked achievement against the current stats,
+    /// unlocking (and persisting) any that now qualify. The first newly
+    /// unlocked one is surfaced via `pendingAchievementUnlock` for a toast.
+    @discardableResult
+    func checkAchievements() -> [Achievement] {
+        var newly: [Achievement] = []
+        for achievement in Achievement.all where !unlockedAchievements.contains(achievement.id) {
+            if achievement.isUnlocked(self) {
+                unlockedAchievements.insert(achievement.id)
+                newly.append(achievement)
+            }
+        }
+        if let first = newly.first {
+            pendingAchievementUnlock = first
+            Haptics.success()
+            SoundPlayer.fanfare()
+        }
+        if !newly.isEmpty { save() }
+        return newly
+    }
+
+    // ---- daily quests ----
+    /// Today's 3 quests — a deterministic pick from the pool so they're the
+    /// same all day (and the same if you reopen the app), without needing to
+    /// save which ones were chosen.
+    var todayQuests: [QuestTemplate] {
+        let today = dayNumber()
+        let scored = DailyQuests.pool.map { template -> (QuestTemplate, UInt64) in
+            var hasher = Hasher()
+            hasher.combine(today)
+            hasher.combine(template.id)
+            return (template, UInt64(bitPattern: Int64(hasher.finalize())))
+        }
+        return scored.sorted { $0.1 < $1.1 }.prefix(3).map { $0.0 }
+    }
+
+    func questProgress(for kind: QuestKind) -> Double {
+        switch kind {
+        case .harvest: return Double(dailyCropsHarvested)
+        case .study: return dailyStudySeconds / 60
+        case .tasks: return Double(dailyTasksCompleted)
+        case .plant: return Double(dailySeedsPlanted)
+        }
+    }
+
+    func isQuestClaimed(_ template: QuestTemplate) -> Bool {
+        claimedQuestIDs.contains("\(dayNumber()).\(template.id)")
+    }
+
+    /// Pays out a finished quest's reward, once per quest per day.
+    @discardableResult
+    func claimQuest(_ template: QuestTemplate) -> Bool {
+        guard !isQuestClaimed(template), questProgress(for: template.kind) >= template.target else { return false }
+        claimedQuestIDs.insert("\(dayNumber()).\(template.id)")
+        earn(template.reward)
+        return true
+    }
+
+    /// Call from wherever a to-do task is finished — updates both the lifetime
+    /// and the daily-quest counters, then pays out the usual task reward.
+    func completeTaskReward() {
+        lifetimeTasksCompleted += 1
+        dailyTasksCompleted += 1
+        earn(CoinReward.bonusPerTask)
+    }
+
+    /// Call from wherever a study session ends — updates both the lifetime
+    /// and the daily-quest counters, then pays out the session's coins.
+    func completeStudySession(seconds: TimeInterval, coins: Int) {
+        lifetimeStudySeconds += seconds
+        dailyStudySeconds += seconds
+        earn(coins)
     }
 
     // ---- inventory ----
@@ -296,8 +531,7 @@ final class GameStore: ObservableObject {
     func sell(_ id: String) -> Int? {
         guard count(id) > 0, let value = sellValue(id) else { return nil }
         remove(id)
-        points += value
-        save()
+        earn(value)
         return value
     }
 
@@ -315,6 +549,7 @@ final class GameStore: ObservableObject {
             return false
         }
         remove(id)
+        if info.kind == "seed" { dailySeedsPlanted += 1 }
         save()
         return true
     }
@@ -347,6 +582,7 @@ final class GameStore: ObservableObject {
     /// Grows plants by the real time since the last update. Also called when
     /// the app returns to the foreground, where the timer was paused.
     func advance() {
+        ensureDailyReset()
         let now = Date()
         let dt = max(0, now.timeIntervalSince(lastUpdate))
         lastUpdate = now
@@ -446,6 +682,14 @@ final class GameStore: ObservableObject {
         add(id)
         let mutation = Mutation.random()
         cropHarvests[id, default: []].append(HarvestedUnit(weight: Double.random(in: 0.7...1.4), mutation: mutation))
+        lifetimeCropsHarvested += 1
+        dailyCropsHarvested += 1
+        if mutation != .none {
+            // Kept forever (for the Mutation Dex) even after this particular
+            // crop is sold — discovery, not current stock.
+            discoveredMutations.insert("\(seed)|\(mutation.rawValue)")
+        }
+        checkAchievements()
         return mutation
     }
 

@@ -130,8 +130,9 @@ struct StudyView: View {
             sessionSubjects = []
         }
         let reward = CoinReward(studiedSeconds: studiedSeconds)
-        // Same shared `points` balance the garden shop and the to-do list use.
-        store.points += reward.total
+        // Same shared `points` balance the garden shop and the to-do list
+        // use; also counts toward Study achievements and today's quest.
+        store.completeStudySession(seconds: studiedSeconds, coins: reward.total)
         Haptics.success()
         SoundPlayer.fanfare()
         lastReward = reward
