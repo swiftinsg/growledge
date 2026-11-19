@@ -19,6 +19,7 @@ struct SellScreen: View {
     @State private var dragging: DragInfo?
     @State private var trayFrame: CGRect = .zero
     @State private var tray: [TraySellItem] = []
+    @State private var confirmSellAll = false
 
     struct TraySellItem: Identifiable {
         let id = UUID()
@@ -52,6 +53,19 @@ struct SellScreen: View {
                     .font(.caption)
                     .foregroundStyle(Theme.subtext)
                     .multilineTextAlignment(.center)
+
+                let allCrops = store.allCropsSaleSummary()
+                GameButton(title: "Sell All Crops", icon: "bag.fill", width: 200, height: 44) {
+                    confirmSellAll = true
+                }
+                .disabled(allCrops.count == 0)
+                .opacity(allCrops.count == 0 ? 0.4 : 1)
+                .alert("Sell all crops?", isPresented: $confirmSellAll) {
+                    Button("Sell", role: .destructive) { sellAllCrops() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Sell \(allCrops.count) crop\(allCrops.count == 1 ? "" : "s") for \(Theme.coin) \(allCrops.total.formatted())? Seeds and sprinklers are kept.")
+                }
 
                 ScrollView {
                     LazyVStack(spacing: 10) {
@@ -184,6 +198,13 @@ struct SellScreen: View {
         for item in tray { store.returnFromTray(item.itemID, weight: item.weight, mutation: item.mutation) }
         SoundPlayer.remove()
         withAnimation { tray.removeAll() }
+    }
+
+    private func sellAllCrops() {
+        let result = store.sellAllCrops()
+        guard result.count > 0 else { return }
+        Haptics.success()
+        SoundPlayer.coin()
     }
 
     private func confirmSell() {

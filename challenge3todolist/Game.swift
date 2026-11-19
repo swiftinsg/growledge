@@ -170,6 +170,25 @@ struct Game: View {
 
         // Harvest: press and HOLD (bottom left)
         .overlay(alignment: .bottomLeading) {
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    plantAll()
+                } label: {
+                    ButtonLook(title: "Plant All", icon: "leaf.fill", width: 220, height: 46)
+                        .overlay(alignment: .topTrailing) {
+                            if !store.seedsInBag.isEmpty {
+                                Text("\(store.seedsInBag.reduce(0) { $0 + store.count($1) })")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.white)
+                                    .padding(7)
+                                    .background(Circle().fill(Theme.accent))
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
+                }
+                .bouncy(haptic: false)
+
             ButtonLook(title: "Hold to Harvest All", icon: "hand.tap.fill", width: 220, height: 56)
                 .overlay(alignment: .topTrailing) {
                     if store.readyCount > 0 {
@@ -189,7 +208,8 @@ struct Game: View {
                 }, onPressingChanged: { pressing in
                     holding = pressing
                 })
-                .padding()
+            }
+            .padding()
         }
 
         // Buy + Sell (bottom right, stacked). Plain Buttons that push the
@@ -265,6 +285,48 @@ struct Game: View {
         } else {
             Haptics.warning()
             showToast("That spot is taken, or it can't go here")
+        }
+    }
+
+    /// Plants the seeds in your bag onto the empty tiles you can see, left to
+    /// right and top to bottom, keeping clear of the buttons and the bag.
+    func plantAll() {
+        guard gardenFrame != .zero else { return }
+        guard !store.seedsInBag.isEmpty else {
+            Haptics.warning()
+            showToast("You have no seeds — buy some first")
+            return
+        }
+        let ts = Theme.tileSize
+        // The part of the screen that is clear of the HUD, the bag on the
+        // right and the buttons along the bottom.
+        let area = CGRect(x: 0, y: 80, width: gardenFrame.width - 92, height: gardenFrame.height - 80 - 160)
+        let firstCol = Int(floor(-plotOffset.width / ts)) - 1
+        let lastCol = Int(ceil((area.maxX - plotOffset.width) / ts)) + 1
+        let firstRow = Int(floor((area.minY - plotOffset.height) / ts)) - 1
+        let lastRow = Int(ceil((area.maxY - plotOffset.height) / ts)) + 1
+
+        var cells: [(col: Int, row: Int)] = []
+        for row in firstRow...lastRow {
+            for col in firstCol...lastCol {
+                let center = CGPoint(x: (CGFloat(col) + 0.5) * ts + plotOffset.width,
+                                     y: (CGFloat(row) + 0.5) * ts + plotOffset.height)
+                if area.contains(center) && !isOccupied((col, row)) {
+                    cells.append((col, row))
+                }
+            }
+        }
+
+        let planted = store.plantAll(in: cells)
+        if planted > 0 {
+            Haptics.success()
+            SoundPlayer.plant()
+            withAnimation { hasPlantedOnce = true }
+            let left = store.seedsInBag.reduce(0) { $0 + store.count($1) }
+            showToast("Planted \(planted) seed\(planted == 1 ? "" : "s")" + (left > 0 ? " — \(left) left, no more room in view" : ""))
+        } else {
+            Haptics.warning()
+            showToast("No empty spots in view")
         }
     }
 
