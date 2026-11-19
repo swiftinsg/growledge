@@ -149,38 +149,61 @@ struct SeasonBackdrop: View {
     }
 }
 
+/// Redraws the weather at a capped frame rate (`Theme.weatherFrameRate`), and
+/// stops while the app is in the background or Reduce Motion is switched on.
+struct WeatherTimeline<Content: View>: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ViewBuilder let content: (Date) -> Content
+
+    var body: some View {
+        let paused = reduceMotion || scenePhase != .active
+        TimelineView(.animation(minimumInterval: 1 / Theme.weatherFrameRate, paused: paused)) { timeline in
+            content(timeline.date)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// Falling snow.
 private struct SnowLayer: View {
-    private static let flakes: [RainDrop] = (0..<90).map { _ in
+    private static let opacityRange = 0.5...0.95
+    /// The brightness of each of the three groups (see `RainDrop.group`).
+    private static let groupOpacities = [0.55, 0.72, 0.9]
+
+    private static let flakes: [RainDrop] = (0..<Theme.snowFlakeCount).map { _ in
         RainDrop(x: Double.random(in: 0...1),
                  speed: Double.random(in: 0.15...0.4),
                  length: Double.random(in: 2...5),
                  phase: Double.random(in: 0...1),
-                 opacity: Double.random(in: 0.5...0.95))
+                 opacity: Double.random(in: opacityRange))
     }
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        WeatherTimeline { date in
             Canvas { context, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
+                let t = date.timeIntervalSinceReferenceDate
+                var groups = [Path(), Path(), Path()]
                 for flake in Self.flakes {
                     let progress = (t * flake.speed + flake.phase).truncatingRemainder(dividingBy: 1)
                     let y = progress * (size.height + 20) - 10
                     let x = flake.x * size.width + sin(t * flake.speed * 3 + flake.phase * 6) * 12
-                    let rect = CGRect(x: x, y: y, width: flake.length, height: flake.length)
-                    context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(flake.opacity)))
+                    groups[flake.group(in: Self.opacityRange)]
+                        .addEllipse(in: CGRect(x: x, y: y, width: flake.length, height: flake.length))
+                }
+                for (path, opacity) in zip(groups, Self.groupOpacities) {
+                    context.fill(path, with: .color(.white.opacity(opacity)))
                 }
             }
         }
-        .allowsHitTesting(false)
     }
 }
 
 /// Soft sun rays from the top corner.
 private struct SunLayer: View {
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+        WeatherTimeline { date in
+            let t = date.timeIntervalSinceReferenceDate
             Canvas { context, size in
                 let origin = CGPoint(x: size.width * 0.9, y: -20)
                 for i in 0..<6 {

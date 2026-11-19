@@ -36,6 +36,12 @@ enum Theme {
     static let sellRate = 0.7               // selling gives 50% of the price
     static let startingPoints = 100         // only used the very first time
 
+    // Weather (rain, snow, sun rays). Fewer particles and a lower frame rate
+    // keep the garden smooth on slower devices; raise them for a richer look.
+    static let weatherFrameRate = 30.0
+    static let rainDropCount = 70
+    static let snowFlakeCount = 45
+
     // Rain
     static let rainColor = Color(red: 0.75, green: 0.85, blue: 1.0)
 }

@@ -163,33 +163,47 @@ struct RainDrop {
     let length: Double
     let phase: Double
     let opacity: Double
+
+    /// 0, 1 or 2: which of three brightness groups this drop belongs to.
+    /// Each group is drawn in one go, which is much cheaper than one draw
+    /// call per drop.
+    func group(in range: ClosedRange<Double>) -> Int {
+        let position = (opacity - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return min(2, max(0, Int(position * 3)))
+    }
 }
 
 struct RainLayer: View {
-    static let drops: [RainDrop] = (0..<140).map { _ in
+    static let opacityRange = 0.15...0.5
+    /// The brightness of each of the three groups.
+    private static let groupOpacities = [0.2, 0.33, 0.46]
+
+    static let drops: [RainDrop] = (0..<Theme.rainDropCount).map { _ in
         RainDrop(x: Double.random(in: 0...1),
                  speed: Double.random(in: 0.7...1.4),
                  length: Double.random(in: 10...24),
                  phase: Double.random(in: 0...1),
-                 opacity: Double.random(in: 0.15...0.5))
+                 opacity: Double.random(in: opacityRange))
     }
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        WeatherTimeline { date in
             Canvas { context, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
+                let t = date.timeIntervalSinceReferenceDate
+                var groups = [Path(), Path(), Path()]
                 for drop in Self.drops {
                     let progress = (t * drop.speed * 0.9 + drop.phase).truncatingRemainder(dividingBy: 1)
                     let y = progress * (size.height + 60) - 30
                     let x = drop.x * (size.width + 40) + y * 0.18 - 20
-                    var path = Path()
-                    path.move(to: CGPoint(x: x, y: y))
-                    path.addLine(to: CGPoint(x: x + drop.length * 0.18, y: y + drop.length))
-                    context.stroke(path, with: .color(Theme.rainColor.opacity(drop.opacity)), lineWidth: 1.2)
+                    let g = drop.group(in: Self.opacityRange)
+                    groups[g].move(to: CGPoint(x: x, y: y))
+                    groups[g].addLine(to: CGPoint(x: x + drop.length * 0.18, y: y + drop.length))
+                }
+                for (path, opacity) in zip(groups, Self.groupOpacities) {
+                    context.stroke(path, with: .color(Theme.rainColor.opacity(opacity)), lineWidth: 1.2)
                 }
             }
         }
-        .allowsHitTesting(false)
     }
 }
 
