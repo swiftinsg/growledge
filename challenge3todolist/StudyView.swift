@@ -144,17 +144,31 @@ struct StudyView: View {
             sessionTaskIDs = []
             sessionSubjects = []
         }
-        let reward = CoinReward(studiedSeconds: studiedSeconds)
+        var reward = CoinReward(studiedSeconds: studiedSeconds)
+
+        // The session was just logged, so today already counts in the streak.
+        // The bonus is paid once a day (the first long-enough session).
+        let streak = StudyLogStore.shared.currentStreak()
+        let bonus = CoinReward.streakBonus(streakDays: streak, minutesStudied: reward.minutes)
+        if bonus > 0, DailyRewardLimiter(limit: 1, key: "reward.streak").claim() {
+            reward.streakDays = streak
+            reward.streakBonus = bonus
+        }
+
         // Same shared `points` balance the garden shop and the to-do list
         // use; also counts toward Study achievements and today's quest.
-        store.completeStudySession(seconds: studiedSeconds, coins: reward.total)
+        store.completeStudySession(seconds: studiedSeconds, coins: reward.grandTotal)
         Haptics.success()
         SoundPlayer.fanfare()
         lastReward = reward
     }
 
     private func resultMessage(for reward: CoinReward) -> String {
-        "You studied for \(reward.minutes) min and earned +\(reward.total.formatted()) \(Theme.coin)"
+        var message = "You studied for \(reward.minutes) min and earned +\(reward.total.formatted()) \(Theme.coin)"
+        if reward.streakBonus > 0 {
+            message += "\n+\(reward.streakBonus.formatted()) \(Theme.coin) streak bonus for \(reward.streakDays) days in a row!"
+        }
+        return message
     }
 }
 
