@@ -43,6 +43,11 @@ struct TimerView: View {
 
     /// Unlocks the apps if this screen goes away while a focus phase is running.
     @StateObject private var lockSession = FocusLockSession()
+    /// The subjects of the current session, kept in shared state. A running
+    /// countdown holds an old copy of this view (from before the subjects were
+    /// chosen), so it must not read `subjects` directly or it would log study
+    /// time with no subject.
+    @State private var activeSubjects: [Subject] = []
 
     /// The subjects being studied; History colours the session with them.
     var subjects: [Subject] = []
@@ -133,7 +138,11 @@ struct TimerView: View {
             // On first launch the user must confirm a work time.
             .interactiveDismissDisabled(!hasConfiguredWorkTime)
         }
+        .onChange(of: subjects) { _, newSubjects in
+            activeSubjects = newSubjects
+        }
         .onAppear {
+            activeSubjects = subjects
             if !hasConfiguredWorkTime {
                 isEditingDuration = true
             }
@@ -325,7 +334,7 @@ struct TimerView: View {
         // If the phase ran out while the app was in the background, only the
         // time up to its scheduled end was studied, not the time away.
         let end = min(.now, endDate ?? .now)
-        StudyLogStore.shared.record(start: start, end: end, subjects: subjects)
+        StudyLogStore.shared.record(start: start, end: end, subjects: activeSubjects)
         segmentStart = nil
     }
 
