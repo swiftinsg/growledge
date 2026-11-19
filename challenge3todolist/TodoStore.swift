@@ -72,8 +72,16 @@ struct TaskGroup: Identifiable {
 final class TodoStore: ObservableObject {
     static let shared = TodoStore()
 
-    private static let subjectsKey = "todo.subjects"
-    private static let remindersKey = "todo.reminders"
+    static let subjectsKey = "todo.subjects"
+    static let remindersKey = "todo.reminders"
+
+    private let defaults: UserDefaults
+
+    /// False while the saved data is being loaded. `didSet` on a @Published
+    /// property DOES run inside `init`, so without this guard loading the
+    /// subjects would save the still-empty task list over the real one, and
+    /// every task would be lost each time the app starts.
+    private var isLoaded = false
 
     @Published var subjects: [Subject] = [] {
         didSet { save() }
@@ -82,9 +90,11 @@ final class TodoStore: ObservableObject {
         didSet { save() }
     }
 
-    init() {
-        // (didSet is not called while initialising, so loading doesn't re-save)
-        let defaults = UserDefaults.standard
+    /// Tasks whose "finishing" fade is playing right now (never saved).
+    @Published var finishingIDs: Set<UUID> = []
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         if let data = defaults.data(forKey: Self.subjectsKey),
            let saved = try? JSONDecoder().decode([Subject].self, from: data) {
             subjects = saved
@@ -93,10 +103,11 @@ final class TodoStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Reminder].self, from: data) {
             reminders = saved
         }
+        isLoaded = true
     }
 
     private func save() {
-        let defaults = UserDefaults.standard
+        guard isLoaded else { return }
         defaults.set(try? JSONEncoder().encode(subjects), forKey: Self.subjectsKey)
         defaults.set(try? JSONEncoder().encode(reminders), forKey: Self.remindersKey)
     }
