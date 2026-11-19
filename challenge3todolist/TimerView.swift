@@ -41,6 +41,9 @@ struct TimerView: View {
     /// shown (among other goals) while the timer is full screen.
     @AppStorage("studyGoal") private var studyGoal = ""
 
+    /// Unlocks the apps if this screen goes away while a focus phase is running.
+    @StateObject private var lockSession = FocusLockSession()
+
     /// The subjects being studied; History colours the session with them.
     var subjects: [Subject] = []
 
@@ -276,6 +279,7 @@ struct TimerView: View {
         tickTask?.cancel()
         tickTask = nil
         TimerNotifications.cancel()
+        FocusLock.shared.unlock()
         if let endDate {
             remaining = max(0, endDate.timeIntervalSinceNow)
         }
@@ -329,6 +333,7 @@ struct TimerView: View {
         tickTask?.cancel()
         tickTask = nil
         TimerNotifications.cancel()
+        FocusLock.shared.unlock()
         endDate = nil
         remaining = 0
         state = .idle
@@ -360,6 +365,12 @@ struct TimerView: View {
         let target = Date.now.addingTimeInterval(remaining)
         endDate = target
         TimerNotifications.schedule(after: remaining, endingFocus: phase == .work)
+        // Apps are blocked during focus time only; breaks are free
+        if phase == .work {
+            FocusLock.shared.lock()
+        } else {
+            FocusLock.shared.unlock()
+        }
         tickTask?.cancel()
         tickTask = Task { @MainActor in
             while !Task.isCancelled {
