@@ -57,6 +57,10 @@ enum SeasonalEvent: Equatable {
 enum Season: String, CaseIterable {
     case rainy, sunny, snowy
 
+    /// Tests set this to pin the weather, because the real weather follows the
+    /// clock (and changes growth speed and tornado chances). Never set in the app.
+    static var forcedForTests: Season?
+
     /// How often the weather changes on its own. Nobody picks it — it's random.
     static let changeInterval: TimeInterval = 15 * 60   // 15 minutes
 
@@ -65,6 +69,7 @@ enum Season: String, CaseIterable {
     /// same moment and the player has no way to choose it — it just changes
     /// on its own every `changeInterval`.
     static var current: Season {
+        if let forcedForTests { return forcedForTests }
         let bucket = Int(Date().timeIntervalSince1970 / changeInterval)
         var hasher = Hasher()
         hasher.combine(bucket)

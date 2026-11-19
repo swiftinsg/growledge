@@ -4,20 +4,34 @@ import Testing
 
 /// The tests change `GameStore.tiles` in memory only, and call `tick` just a
 /// few times (it saves every 20th tick), so the app's saved garden is not touched.
+///
+/// Growth speed depends on the weather (rain is faster, snow slower) and rain
+/// can bring tornadoes, and the real weather follows the clock. So each test
+/// pins the weather first. The pin is global, so these tests run one at a time.
 @MainActor
+@Suite(.serialized)
 struct GardenGrowthTests {
     private let carrotGrowSeconds = Catalog.cropByName["carrot"]!.growSeconds
 
-    @Test func plantGrowsByTheTimePassed() {
+    private func pin(_ season: Season = .sunny) { Season.forcedForTests = season }
+    private func unpin() { Season.forcedForTests = nil }
+    private func isClose(_ a: Double?, _ b: Double) -> Bool {
+        guard let a else { return false }
+        return abs(a - b) < 1e-9
+    }
+
+    @Test func plantGrowsByTheTimePassedTimesTheWeather() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = ["1,1": Tile(seed: "carrot")]
 
         store.tick(10)
 
-        #expect(store.tiles["1,1"]?.progress == 10)
+        #expect(isClose(store.tiles["1,1"]?.progress, 10 * Season.sunny.growthMultiplier))
     }
 
     @Test func neighbouringSprinklerSpeedsGrowthUp() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
             "1,1": Tile(seed: "carrot"),
@@ -26,21 +40,23 @@ struct GardenGrowthTests {
 
         store.tick(10)
 
-        #expect(store.tiles["1,1"]?.progress == 15)
+        #expect(isClose(store.tiles["1,1"]?.progress, 10 * Season.sunny.growthMultiplier * 1.5))
         #expect(store.tiles["0,1"]?.progress == 0)  // sprinklers don't grow
     }
 
     @Test func sprinklerTooFarAwayDoesNothing() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
             "1,1": Tile(seed: "carrot"),
             "3,3": Tile(sprinkler: 5)
         ]
 
-        #expect(store.speed(forKey: "1,1") == 1)
+        #expect(isClose(store.speed(forKey: "1,1"), Season.sunny.growthMultiplier))
     }
 
     @Test func sprinklersDoNotStackTheBestOneWins() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
             "1,1": Tile(seed: "carrot"),
@@ -48,10 +64,29 @@ struct GardenGrowthTests {
             "2,2": Tile(sprinkler: 2)               // tier 2 = 2x
         ]
 
-        #expect(store.speed(forKey: "1,1") == 2)
+        #expect(isClose(store.speed(forKey: "1,1"), Season.sunny.growthMultiplier * 2))
+    }
+
+    @Test func rainSpeedsPlantsUpAndSnowSlowsThemDown() {
+        defer { unpin() }
+        let store = GameStore()
+        store.tiles = ["1,1": Tile(seed: "carrot")]
+
+        pin(.rainy)
+        let rainy = store.speed(forKey: "1,1")
+        pin(.sunny)
+        let sunny = store.speed(forKey: "1,1")
+        pin(.snowy)
+        let snowy = store.speed(forKey: "1,1")
+
+        #expect(rainy > sunny)
+        #expect(sunny > snowy)
+        #expect(sunny > 1)          // even sun is a mild bonus
+        #expect(snowy < 1)          // winter is slower than the baseline
     }
 
     @Test func growthStopsWhenThePlantIsReady() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = ["1,1": Tile(seed: "carrot")]
 
@@ -76,6 +111,7 @@ struct GardenGrowthTests {
     }
 
     @Test func unknownSeedsAreIgnoredInsteadOfCrashing() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = ["1,1": Tile(seed: "not-a-crop")]
 
@@ -85,6 +121,7 @@ struct GardenGrowthTests {
     }
 
     @Test func zeroTimePassedChangesNothing() {
+        pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = ["1,1": Tile(seed: "carrot", progress: 5)]
 
@@ -125,8 +162,17 @@ struct WeatherTests {
 @MainActor
 struct CatalogTests {
     @Test func cropNamesAreUnique() {
-        #expect(Set(Catalog.cropNames).count == Catalog.cropNames.count)
-        #expect(Catalog.cropByName.count == Catalog.cropNames.count)
+        // The regular crops and the limited-time event crops share one lookup,
+        // so no name may appear twice anywhere.
+        let all = Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops
+        #expect(Set(all.map(\.name)).count == all.count)
+        #expect(Catalog.cropByName.count == all.count)
+    }
+
+    @Test func everyCropCanBeLookedUpByName() {
+        for name in Catalog.cropNames {
+            #expect(Catalog.cropByName[name]?.name == name)
+        }
     }
 
     @Test func pricesAndGrowthTimesGoUpAlongTheList() {
