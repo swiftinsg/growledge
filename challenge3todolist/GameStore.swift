@@ -469,6 +469,7 @@ final class GameStore: ObservableObject {
     // ---- buying and selling ----
     @discardableResult
     func buy(_ id: String, price: Int) -> Bool {
+        let price = effectivePrice(price)   // free in admin mode
         guard points >= price, stockToday(id: id, price: price) > 0 else { return false }
         points -= price
         add(id)
@@ -499,6 +500,7 @@ final class GameStore: ObservableObject {
     /// deterministic for the day, so everyone sees the same stock without
     /// needing to save anything beyond how much has already been bought.
     func stockToday(id: String, price: Int) -> Int {
+        if AdminMode.shared.isActive { return 99 }   // never sold out in admin mode
         let base = baseStock(price: price)
         var hasher = Hasher()
         hasher.combine(dayNumber())

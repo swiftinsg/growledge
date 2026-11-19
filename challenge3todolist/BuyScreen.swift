@@ -130,10 +130,11 @@ struct ShopRow: View {
     let subtitle: String
     let price: Int
     @ObservedObject private var store = GameStore.shared
+    @ObservedObject private var admin = AdminMode.shared
 
     var body: some View {
         let stock = store.stockToday(id: id, price: price)
-        let canBuy = store.points >= price && stock > 0
+        let canBuy = store.points >= store.effectivePrice(price) && stock > 0
         HStack(spacing: 12) {
             ItemIcon(id: id, size: 60)
                 .saturation(stock > 0 ? 1 : 0.15)
@@ -155,7 +156,7 @@ struct ShopRow: View {
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(Theme.subtext)
-                Text("\(Theme.coin) \(price.formatted())")
+                Text(admin.isActive ? "FREE (admin)" : "\(Theme.coin) \(price.formatted())")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(canBuy ? Theme.gold : Theme.bad)

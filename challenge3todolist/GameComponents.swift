@@ -143,9 +143,11 @@ struct ItemIcon: View {
 
 struct PointsPill: View {
     @ObservedObject private var store = GameStore.shared
+    @ObservedObject private var admin = AdminMode.shared
+    @State private var showAdmin = false
 
     var body: some View {
-        Text("\(Theme.coin) \(store.points.formatted())")
+        Text("\(Theme.coin) \(store.points.formatted())\(admin.isActive ? " 🔧" : "")")
             .font(.headline)
             .fontWeight(.semibold)
             .foregroundStyle(Theme.gold)
@@ -153,6 +155,9 @@ struct PointsPill: View {
             .padding(.vertical, 8)
             .background(Capsule().fill(Theme.card.opacity(0.9)))
             .overlay(Capsule().stroke(Theme.panelBorder, lineWidth: 1))
+            // Hidden entrance to admin mode: press and hold the coin counter.
+            .onLongPressGesture(minimumDuration: 1.5) { showAdmin = true }
+            .sheet(isPresented: $showAdmin) { AdminSheet() }
     }
 }
 
