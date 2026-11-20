@@ -202,6 +202,24 @@ struct CropFruitView: View {
     }
 }
 
+/// A crop's seed: its pixel picture if there is one, otherwise a drawn seed packet.
+struct CropSeedView: View {
+    let crop: Crop
+    var size: CGFloat = 44
+
+    var body: some View {
+        if let name = crop.art?.seed {
+            ZStack {
+                Circle().fill(crop.style.primary.opacity(0.22))
+                PixelImage(name: name, size: size * 0.78)
+            }
+            .frame(width: size, height: size)
+        } else {
+            SeedPacketView(style: crop.style, size: size)
+        }
+    }
+}
+
 // MARK: - The grown fruit
 
 /// A fully grown fruit, with a soft glow behind it. `tint` is used by
@@ -359,70 +377,128 @@ struct SeedPacketView: View {
 
 // MARK: - The growing plant
 
-/// What is in the ground while a crop grows: a seed in the soil, then a
-/// sprout that gets bigger (and sets a small bud in the fruit's colour near
-/// the end). It switches to the real fruit when ready.
+/// What grows in a plot: a small seed on the grass, then a sapling that gets
+/// bigger, then a full-grown tree (taller than the plot, so it looks like a
+/// real tree). Just the plant, nothing around it. `size` is the plot size.
 struct PlantStageView: View {
     let crop: Crop
     private var style: FruitStyle { crop.style }
     /// 0...1: how far along the growing is.
     let progress: Double
+    /// The size of one plot.
     var size: CGFloat = 32
 
+    /// How much taller than its plot a full-grown tree is.
+    static let treeScale: CGFloat = 1.45
+
     var body: some View {
-        Group {
+        ZStack(alignment: .bottom) {
             if progress >= 1 {
-                // ready: the grown plant if we have a picture of it, else the fruit
-                if let tree = crop.art?.tree {
-                    PixelImage(name: tree, size: size * 1.1)
-                } else {
-                    CropFruitView(crop: crop, size: size * 1.15)
-                }
+                grownTree
             } else if progress < 0.12 {
-                seedInSoil
-            } else if let sapling = crop.art?.sapling {
-                PixelImage(name: sapling, size: size * (0.55 + 0.45 * progress))
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                seed
             } else {
-                sprout
+                sapling
             }
         }
-        .frame(width: size, height: size)
+        // The plant may stand taller than its plot; it is anchored at the bottom.
+        .frame(width: size, height: size, alignment: .bottom)
     }
 
-    private var seedInSoil: some View {
-        ZStack(alignment: .bottom) {
-            Ellipse().fill(Color(hex: 0x4E342E)).frame(width: size * 0.8, height: size * 0.3)
-            TeardropShape()
-                .fill(style.primary)
-                .frame(width: size * 0.18, height: size * 0.26)
-                .rotationEffect(.degrees(25))
-                .offset(y: -size * 0.1)
+    private var grownTree: some View {
+        Group {
+            if let tree = crop.art?.tree {
+                PixelImage(name: tree, size: size * Self.treeScale)
+            } else {
+                VectorTree(style: style, size: size * Self.treeScale)
+            }
         }
+        .padding(.bottom, size * 0.04)
     }
 
-    private var sprout: some View {
-        // 0...1 across the sprout stage only
+    private var seed: some View {
+        Group {
+            if let name = crop.art?.seed {
+                PixelImage(name: name, size: size * 0.34)
+            } else {
+                TeardropShape()
+                    .fill(style.primary)
+                    .frame(width: size * 0.12, height: size * 0.17)
+                    .rotationEffect(.degrees(25))
+            }
+        }
+        .padding(.bottom, size * 0.3)
+    }
+
+    private var sapling: some View {
+        // 0...1 across the sapling stage only
         let t = min(max((progress - 0.12) / 0.88, 0), 1)
-        return ZStack(alignment: .bottom) {
-            Ellipse().fill(Color(hex: 0x4E342E)).frame(width: size * 0.8, height: size * 0.28)
+        return Group {
+            if let name = crop.art?.sapling {
+                PixelImage(name: name, size: size * (0.5 + 0.45 * t))
+            } else {
+                VectorSprout(style: style, t: t, size: size * 0.8)
+            }
+        }
+        .padding(.bottom, size * 0.04)
+    }
+}
+
+/// A drawn sapling, for crops that have no sapling picture yet.
+private struct VectorSprout: View {
+    let style: FruitStyle
+    let t: Double
+    let size: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
             Capsule().fill(leafGreen)
-                .frame(width: size * 0.07, height: size * (0.2 + 0.5 * t))
-                .offset(y: -size * 0.08)
+                .frame(width: size * 0.08, height: size * (0.25 + 0.5 * t))
             LeafShape().fill(leafGreen)
-                .frame(width: size * (0.14 + 0.3 * t), height: size * (0.08 + 0.14 * t))
+                .frame(width: size * (0.18 + 0.3 * t), height: size * (0.1 + 0.15 * t))
                 .rotationEffect(.degrees(-30))
-                .offset(x: -size * (0.1 + 0.1 * t), y: -size * (0.2 + 0.25 * t))
+                .offset(x: -size * (0.12 + 0.1 * t), y: -size * (0.25 + 0.3 * t))
             LeafShape().fill(leafGreen.opacity(0.85))
-                .frame(width: size * (0.14 + 0.3 * t), height: size * (0.08 + 0.14 * t))
+                .frame(width: size * (0.18 + 0.3 * t), height: size * (0.1 + 0.15 * t))
                 .rotationEffect(.degrees(30))
-                .offset(x: size * (0.1 + 0.1 * t), y: -size * (0.28 + 0.25 * t))
+                .offset(x: size * (0.12 + 0.1 * t), y: -size * (0.33 + 0.3 * t))
             if t > 0.6 {
                 Circle().fill(style.primary)
                     .frame(width: size * 0.2 * ((t - 0.6) / 0.4), height: size * 0.2 * ((t - 0.6) / 0.4))
-                    .offset(y: -size * (0.2 + 0.5 * t))
+                    .offset(y: -size * (0.25 + 0.5 * t))
             }
         }
+        .frame(width: size, height: size, alignment: .bottom)
+    }
+}
+
+/// A drawn tree with the fruit hanging on it, for crops that have no tree picture yet.
+private struct VectorTree: View {
+    let style: FruitStyle
+    let size: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // trunk
+            RoundedRectangle(cornerRadius: size * 0.03)
+                .fill(stemBrown)
+                .frame(width: size * 0.12, height: size * 0.4)
+            // leafy top
+            ZStack {
+                Circle().fill(leafGreen).frame(width: size * 0.5, height: size * 0.5).offset(x: -size * 0.14, y: size * 0.05)
+                Circle().fill(leafGreen.opacity(0.92)).frame(width: size * 0.5, height: size * 0.5).offset(x: size * 0.14, y: size * 0.05)
+                Circle().fill(Color(hex: 0x57B85A)).frame(width: size * 0.56, height: size * 0.56).offset(y: -size * 0.08)
+                // the fruit
+                ForEach(Array([CGPoint(x: -0.17, y: 0.0), CGPoint(x: 0.12, y: -0.14), CGPoint(x: 0.2, y: 0.08), CGPoint(x: -0.04, y: 0.12)].enumerated()), id: \.offset) { _, p in
+                    Circle().fill(style.primary)
+                        .overlay(Circle().fill(style.secondary.opacity(0.5)).frame(width: size * 0.03).offset(x: -size * 0.015, y: -size * 0.015))
+                        .frame(width: size * 0.09, height: size * 0.09)
+                        .offset(x: p.x * size, y: p.y * size)
+                }
+            }
+            .offset(y: -size * 0.3)
+        }
+        .frame(width: size, height: size, alignment: .bottom)
     }
 }
 
@@ -432,8 +508,9 @@ struct PlantStageView: View {
             ForEach(Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops) { crop in
                 VStack(spacing: 6) {
                     CropFruitView(crop: crop, size: 64)
-                    SeedPacketView(style: crop.style, size: 48)
+                    CropSeedView(crop: crop, size: 48)
                     PlantStageView(crop: crop, progress: 0.7, size: 48)
+                    PlantStageView(crop: crop, progress: 1, size: 48)
                     Text(crop.name).font(.caption2)
                 }
             }

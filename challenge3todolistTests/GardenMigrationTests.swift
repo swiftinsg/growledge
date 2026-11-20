@@ -68,7 +68,7 @@ struct CatalogArtTests {
     @Test func everyPixelPictureNamedInTheCatalogExists() {
         for crop in Catalog.crops {
             guard let art = crop.art else { continue }
-            for name in [art.fruit, art.sapling, art.tree].compactMap({ $0 }) {
+            for name in [art.seed, art.fruit, art.sapling, art.tree].compactMap({ $0 }) {
                 #expect(UIImage(named: name) != nil, "\(crop.name): missing picture \(name)")
             }
         }

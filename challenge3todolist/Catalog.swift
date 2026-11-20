@@ -11,6 +11,8 @@ import SwiftUI
 /// Hand-made pixel pictures for a crop (names of images in the asset catalog).
 /// Any that are missing fall back to the drawn art in FruitArt.swift.
 struct CropArt {
+    /// The seed (shown in the bag and the shop).
+    var seed: String? = nil
     /// The harvested fruit.
     var fruit: String? = nil
     /// The young plant while it grows.
@@ -37,6 +39,8 @@ struct Sprinkler: Identifiable {
     let name: String
     let price: Int
     let speed: Double           // growth speed multiplier
+    /// How long it keeps working after it is placed; better ones last longer.
+    let duration: TimeInterval
     let color: Color
     var id: Int { tier }
 }
@@ -71,18 +75,17 @@ enum Catalog {
 
     static let cropNames: [String] = fruitDefs.map(\.name)
 
-    /// The pixel art we have so far. (Some of the picture files are named
-    /// "seed" but show the fruit, so they are used as the fruit.)
+    /// The pixel art we have so far. Anything missing falls back to drawn art.
     private static let pixelArt: [String: CropArt] = [
-        "dewdrop berry":   CropArt(fruit: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
-        "mossglow pear":   CropArt(fruit: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
-        "ember fig":       CropArt(fruit: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
-        "moonbloom plum":  CropArt(fruit: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
-        "sunscale citrus": CropArt(fruit: "sunscalecitrusseeds", sapling: nil, tree: "sunscalecitrusfruit"),
-        "mermaid pearl":   CropArt(fruit: nil, sapling: "mermaidpearlsapling", tree: "mermaidpearltree"),
-        "ruby crystal":    CropArt(fruit: nil, sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
+        "dewdrop berry":   CropArt(seed: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
+        "mossglow pear":   CropArt(seed: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
+        "ember fig":       CropArt(seed: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
+        "moonbloom plum":  CropArt(seed: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
+        "sunscale citrus": CropArt(seed: "sunscalecitrusseeds", tree: "sunscalecitrusfruit"),
+        "mermaid pearl":   CropArt(sapling: "mermaidpearlsapling", tree: "mermaidpearltree"),
+        "ruby crystal":    CropArt(sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
         "golden apple":    CropArt(fruit: "goldenapple", sapling: "goldenapplesapling", tree: "goldenappletree"),
-        "aurora melon":    CropArt(fruit: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
+        "aurora melon":    CropArt(seed: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
         "celestial peach": CropArt(fruit: "celestialpeach", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
     ]
 
@@ -141,13 +144,13 @@ enum Catalog {
 
     // 7 sprinkler tiers. They speed up plants in the 3x3 area around them.
     static let sprinklers: [Sprinkler] = [
-        Sprinkler(tier: 1, name: "Tiny Sprinkler",     price: 500,         speed: 1.5, color: .green),
-        Sprinkler(tier: 2, name: "Super Sprinkler",    price: 5_000,       speed: 2,   color: .blue),
-        Sprinkler(tier: 3, name: "Mega Sprinkler",     price: 50_000,      speed: 3,   color: .purple),
-        Sprinkler(tier: 4, name: "Ultra Sprinkler",    price: 500_000,     speed: 5,   color: .orange),
-        Sprinkler(tier: 5, name: "Rainbow Sprinkler",  price: 5_000_000,   speed: 10,  color: .pink),
-        Sprinkler(tier: 6, name: "Galaxy Sprinkler",   price: 25_000_000,  speed: 16,  color: .indigo),
-        Sprinkler(tier: 7, name: "Celestial Sprinkler", price: 100_000_000, speed: 25, color: .yellow)
+        Sprinkler(tier: 1, name: "Tiny Sprinkler",     price: 500,         speed: 1.5, duration: 15 * 60, color: .green),
+        Sprinkler(tier: 2, name: "Super Sprinkler",    price: 5_000,       speed: 2, duration: 30 * 60, color: .blue),
+        Sprinkler(tier: 3, name: "Mega Sprinkler",     price: 50_000,      speed: 3, duration: 60 * 60, color: .purple),
+        Sprinkler(tier: 4, name: "Ultra Sprinkler",    price: 500_000,     speed: 5, duration: 2 * 3600, color: .orange),
+        Sprinkler(tier: 5, name: "Rainbow Sprinkler",  price: 5_000_000,   speed: 10, duration: 4 * 3600, color: .pink),
+        Sprinkler(tier: 6, name: "Galaxy Sprinkler",   price: 25_000_000,  speed: 16, duration: 8 * 3600, color: .indigo),
+        Sprinkler(tier: 7, name: "Celestial Sprinkler", price: 100_000_000, speed: 25, duration: 24 * 3600, color: .yellow)
     ]
 
     static func sprinkler(tier: Int) -> Sprinkler? {
@@ -189,4 +192,10 @@ enum Catalog {
         guard parts.count == 2, parts[0] == "seed" || parts[0] == "crop" else { return id }
         return "\(parts[0]):\(currentCropName(for: parts[1]))"
     }
+}
+
+/// "15m", "1h", "24h": how long a sprinkler works.
+func sprinklerDurationText(_ seconds: TimeInterval) -> String {
+    let minutes = Int((seconds / 60).rounded())
+    return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h"
 }

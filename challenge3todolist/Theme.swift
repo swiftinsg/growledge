@@ -10,7 +10,7 @@ import SwiftUI
 // =====================================================================
 enum Theme {
     // The garden ground never changes colour, whatever the season
-    static let grass = Color(red: 0.20, green: 0.34, blue: 0.30)
+    static let grass = Color(red: 0.40, green: 0.66, blue: 0.32)
     static let soilDark = Color(red: 0.20, green: 0.16, blue: 0.14)
     static let soilLight = Color(red: 0.30, green: 0.24, blue: 0.20)
 

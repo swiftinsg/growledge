@@ -217,3 +217,76 @@ struct TaskModelTests {
         #expect(!task.rewarded)
     }
 }
+
+/// Sprinklers stop working after a while, and better ones last longer.
+@MainActor
+@Suite(.serialized)
+struct SprinklerExpiryTests {
+    private func pin() { Season.forcedForTests = .sunny }
+    private func unpin() { Season.forcedForTests = nil }
+    private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test func betterSprinklersLastLongerAndAreFaster() {
+        let durations = Catalog.sprinklers.map(\.duration)
+        #expect(durations == durations.sorted())
+        #expect(Set(durations).count == durations.count)
+        let speeds = Catalog.sprinklers.map(\.speed)
+        #expect(speeds == speeds.sorted())
+    }
+
+    @Test func placingASprinklerSetsWhenItRunsOut() {
+        let store = GameStore()
+        store.tiles = [:]
+        store.inventory = ["gear:3": 1]
+        let before = Date()
+        #expect(store.place("gear:3", col: 0, row: 0))
+        let ends = store.tiles["0,0"]?.sprinklerEnds
+        #expect(ends != nil)
+        let expected = Catalog.sprinkler(tier: 3)!.duration
+        #expect(abs(ends!.timeIntervalSince(before) - expected) < 5)
+    }
+
+    @Test func aWorkingSprinklerBoostsGrowth() {
+        pin(); defer { unpin() }
+        let store = GameStore()
+        store.tiles = ["1,1": Tile(seed: firstCrop),
+                       "0,1": Tile(sprinkler: 1, sprinklerEnds: t0.addingTimeInterval(1000))]
+        store.tick(10, now: t0)
+        #expect(abs((store.tiles["1,1"]?.progress ?? 0) - 10 * Season.sunny.growthMultiplier * 1.5) < 1e-9)
+    }
+
+    @Test func anExpiredSprinklerGivesNoBoostAndDisappears() {
+        pin(); defer { unpin() }
+        let store = GameStore()
+        store.tiles = ["1,1": Tile(seed: firstCrop),
+                       "0,1": Tile(sprinkler: 1, sprinklerEnds: t0.addingTimeInterval(-60))]
+        store.tick(10, now: t0)
+        #expect(abs((store.tiles["1,1"]?.progress ?? 0) - 10 * Season.sunny.growthMultiplier) < 1e-9)
+        #expect(store.tiles["0,1"] == nil)
+    }
+
+    @Test func aSprinklerThatRanOutHalfWayOnlyCountsForItsWorkingPart() {
+        pin(); defer { unpin() }
+        let store = GameStore()
+        // 10 seconds pass; the sprinkler (1.5x) worked for the first 5 of them
+        store.tiles = ["1,1": Tile(seed: firstCrop),
+                       "0,1": Tile(sprinkler: 1, sprinklerEnds: t0.addingTimeInterval(-5))]
+        store.tick(10, now: t0)
+        let expected = 10 * Season.sunny.growthMultiplier * 1.25   // average of 1.5x and 1x
+        #expect(abs((store.tiles["1,1"]?.progress ?? 0) - expected) < 1e-9)
+    }
+
+    @Test func oldSavedSprinklersGetAFreshDuration() {
+        let migrated = GardenMigration.tiles(["0,0": Tile(sprinkler: 2)], now: t0)
+        #expect(migrated["0,0"]?.sprinklerEnds == t0.addingTimeInterval(Catalog.sprinkler(tier: 2)!.duration))
+    }
+
+    @Test func timeLeftCountsDownToZero() {
+        let store = GameStore()
+        let tile = Tile(sprinkler: 1, sprinklerEnds: t0.addingTimeInterval(100))
+        #expect(store.sprinklerTimeLeft(tile, now: t0) == 100)
+        #expect(store.sprinklerTimeLeft(tile, now: t0.addingTimeInterval(500)) == 0)
+        #expect(store.sprinklerTimeLeft(Tile(sprinkler: 1), now: t0) == nil)
+    }
+}
+

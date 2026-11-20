@@ -102,13 +102,14 @@ struct ItemIcon: View {
         ZStack {
             if info.kind == "gear", let tier = Int(info.name), let sp = Catalog.sprinkler(tier: tier) {
                 Circle().fill(sp.color.opacity(0.35))
-                Image("sprinkler")
+                Image(systemName: "sprinkler.and.droplets.fill")
                     .resizable()
                     .scaledToFit()
-                    .padding(5)
+                    .foregroundStyle(sp.color)
+                    .padding(size * 0.22)
             } else if info.kind == "seed", let crop {
-                // Seeds are drawn as a packet, never as the fruit
-                SeedPacketView(style: crop.style, size: size)
+                // Seeds have their own picture, never the fruit's
+                CropSeedView(crop: crop, size: size)
             } else if let crop {
                 // Grown fruit (tinted when it has a mutation)
                 CropFruitView(crop: crop, size: size, tint: mutation.tint)

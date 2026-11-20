@@ -25,10 +25,14 @@ enum GardenMigration {
     }
 
     /// Planted tiles, with each seed under its current name.
-    static func tiles(_ old: [String: Tile]) -> [String: Tile] {
+    static func tiles(_ old: [String: Tile], now: Date = Date()) -> [String: Tile] {
         old.mapValues { tile in
             var tile = tile
             if let seed = tile.seed { tile.seed = Catalog.currentCropName(for: seed) }
+            // Sprinklers saved before they could run out get a fresh full duration
+            if let tier = tile.sprinkler, tile.sprinklerEnds == nil, let sp = Catalog.sprinkler(tier: tier) {
+                tile.sprinklerEnds = now.addingTimeInterval(sp.duration)
+            }
             return tile
         }
     }

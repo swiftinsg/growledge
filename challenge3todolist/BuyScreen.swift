@@ -71,7 +71,7 @@ struct BuyScreen: View {
                                 ShopRow(
                                     id: "gear:\(sp.tier)",
                                     title: sp.name,
-                                    subtitle: "Plants nearby grow x\(sp.speed.formatted()) faster",
+                                    subtitle: "Plants around it grow x\(sp.speed.formatted()) faster for \(sprinklerDurationText(sp.duration))",
                                     price: sp.price,
                                     onBought: showReceipt
                                 )

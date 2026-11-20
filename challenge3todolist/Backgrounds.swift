@@ -13,25 +13,84 @@ import SwiftUI
 struct GardenTilesLayer: View {
     @ObservedObject var store: GameStore
     var offset: CGSize = .zero
-    /// When set, tapping a ready tile harvests just that one crop.
+    /// When set, tapping a plant tells the caller (to harvest it, or to show
+    /// how long it has left).
     var onTapTile: ((String) -> Void)? = nil
 
+    private func center(_ key: String) -> CGPoint {
+        let spot = tileCoords(key)
+        return CGPoint(x: (CGFloat(spot.col) + 0.5) * Theme.tileSize + offset.width,
+                       y: (CGFloat(spot.row) + 0.5) * Theme.tileSize + offset.height)
+    }
+
+    /// Top row first, so a tall tree in a lower row is drawn in front of the
+    /// one above it.
+    private var orderedKeys: [String] {
+        store.tiles.keys.sorted {
+            let a = tileCoords($0), b = tileCoords($1)
+            return a.row == b.row ? a.col < b.col : a.row < b.row
+        }
+    }
+
     var body: some View {
-        ForEach(store.tiles.keys.sorted(), id: \.self) { key in
-            if let tile = store.tiles[key] {
-                let spot = tileCoords(key)
-                TileContent(tile: tile, speed: store.speed(forKey: key))
-                    .position(
-                        x: (CGFloat(spot.col) + 0.5) * Theme.tileSize + offset.width,
-                        y: (CGFloat(spot.row) + 0.5) * Theme.tileSize + offset.height
-                    )
-                    .onTapGesture {
-                        guard store.isReady(tile) else { return }
-                        onTapTile?(key)
-                    }
+        ZStack {
+            // The area each working sprinkler waters (under the plants)
+            ForEach(orderedKeys.filter { store.tiles[$0]?.sprinkler != nil }, id: \.self) { key in
+                if let tile = store.tiles[key], let tier = tile.sprinkler, let sp = Catalog.sprinkler(tier: tier) {
+                    SprinklerArea(sprinkler: sp, timeLeft: store.sprinklerTimeLeft(tile))
+                        .position(center(key))
+                        .allowsHitTesting(false)
+                }
+            }
+
+            // The plants themselves, and nothing else
+            ForEach(orderedKeys.filter { store.tiles[$0]?.seed != nil }, id: \.self) { key in
+                if let tile = store.tiles[key] {
+                    TileContent(tile: tile)
+                        .contentShape(Rectangle())
+                        .position(center(key))
+                        .onTapGesture { onTapTile?(key) }
+                        .allowsHitTesting(onTapTile != nil)
+                }
+            }
+
+            // Tapping a sprinkler's middle plot shows how long it has left
+            ForEach(orderedKeys.filter { store.tiles[$0]?.sprinkler != nil }, id: \.self) { key in
+                Color.clear
+                    .frame(width: Theme.tileSize, height: Theme.tileSize)
+                    .contentShape(Rectangle())
+                    .position(center(key))
+                    .onTapGesture { onTapTile?(key) }
                     .allowsHitTesting(onTapTile != nil)
             }
         }
+    }
+}
+
+/// The 3x3 area a sprinkler waters: a soft tinted square, plus the time left
+/// in its middle. The sprinkler itself is not drawn.
+struct SprinklerArea: View {
+    let sprinkler: Sprinkler
+    let timeLeft: TimeInterval?
+
+    var body: some View {
+        let side = Theme.tileSize * 3 - 6
+        ZStack {
+            RoundedRectangle(cornerRadius: 18)
+                .fill(sprinkler.color.opacity(0.16))
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(sprinkler.color.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+            if let timeLeft {
+                Text(timeText(timeLeft))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(sprinkler.color.opacity(0.7)))
+            }
+        }
+        .frame(width: side, height: side)
     }
 }
 

@@ -42,9 +42,6 @@ struct Game: View {
                 // Tap any ready tile to harvest just that one crop.
                 GardenTilesLayer(store: store, offset: plotOffset, onTapTile: harvestOne)
 
-                // Weather (snow, rain or sun rays)
-                WeatherLayer()
-
                 // Highlight exactly where the dragged plant will land —
                 // filled, not just outlined, so it's unmistakable while dragging.
                 if let d = dragging, gardenFrame != .zero {
@@ -330,8 +327,22 @@ struct Game: View {
         }
     }
 
-    /// Tapping a single ready tile harvests just that crop.
+    /// Tapping a ready plant harvests just that one. Tapping a growing plant or
+    /// a sprinkler shows how long it has left.
     func harvestOne(_ key: String) {
+        guard let tile = store.tiles[key] else { return }
+        if let tier = tile.sprinkler, let sp = Catalog.sprinkler(tier: tier) {
+            if let left = store.sprinklerTimeLeft(tile) {
+                showToast("\(sp.name) · \(timeText(left)) left")
+            }
+            return
+        }
+        guard let seed = tile.seed, let crop = Catalog.cropByName[seed] else { return }
+        guard store.isReady(tile) else {
+            let left = (crop.growSeconds - tile.progress) / store.speed(forKey: key)
+            showToast("\(crop.name.capitalized) · \(timeText(left)) left")
+            return
+        }
         if let result = store.harvestTile(key) {
             Haptics.success()
             SoundPlayer.harvest()
@@ -352,74 +363,17 @@ struct Game: View {
     }
 }
 
-// What is drawn on a planted tile.
-// A growing crop shows one progress bar and how long is left. (The plant
-// drawing grows too, but it is only a picture, not a second meter.)
+// What is drawn on a planted plot: just the plant, nothing around it.
 struct TileContent: View {
     let tile: Tile
-    var speed: Double = 1
 
     var body: some View {
-        Group {
-            if let seed = tile.seed, let crop = Catalog.cropByName[seed] {
-                let f = min(tile.progress / crop.growSeconds, 1)
-                let ready = f >= 1
-                let timeLeft = (crop.growSeconds - tile.progress) / speed
-
-                VStack(spacing: 2) {
-                    // seed in the soil, then a sprout, then the fruit
-                    PlantStageView(crop: crop, progress: f, size: 32)
-
-                    // progress bar
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.18))
-                        Capsule()
-                            .fill(ready ? Theme.good : Theme.accent)
-                            .frame(width: 54 * f)
-                    }
-                    .frame(width: 54, height: 5)
-
-                    if ready {
-                        Text("READY")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Theme.good)
-                    } else {
-                        // how long is left (faster with a sprinkler)
-                        Text(speed > 1 ? "\(timeText(timeLeft)) left  x\(speed.formatted())" : "\(timeText(timeLeft)) left")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(speed > 1 ? Theme.gold : Theme.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                }
-                .padding(.vertical, 3)
-                .padding(.horizontal, 2)
-                .frame(width: Theme.tileSize - 8)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.5)))
-                .animation(.linear(duration: Theme.tickSeconds), value: f)
-            } else if let tier = tile.sprinkler, let sp = Catalog.sprinkler(tier: tier) {
-                ZStack {
-                    Circle().fill(sp.color.opacity(0.4))
-                    Image("sprinkler")
-                        .resizable()
-                        .scaledToFit()
-                        .padding(8)
-                    Text("x\(sp.speed.formatted())")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .background(Capsule().fill(sp.color))
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                }
-                .overlay {
-                    // the 3x3 area this sprinkler speeds up
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(sp.color.opacity(0.7), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
-                        .frame(width: Theme.tileSize * 3 - 6, height: Theme.tileSize * 3 - 6)
-                }
-            }
+        if let seed = tile.seed, let crop = Catalog.cropByName[seed] {
+            PlantStageView(crop: crop,
+                           progress: min(tile.progress / crop.growSeconds, 1),
+                           size: Theme.tileSize)
+                .animation(.easeOut(duration: 0.4), value: tile.progress >= crop.growSeconds)
         }
-        .frame(width: Theme.tileSize - 6, height: Theme.tileSize - 6)
     }
 }
 

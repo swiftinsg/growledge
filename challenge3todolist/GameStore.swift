@@ -43,6 +43,8 @@ struct Tile: Codable {
     var seed: String?
     var sprinkler: Int?
     var progress: Double = 0
+    /// When a placed sprinkler stops working (nil = never, for old saves and tests).
+    var sprinklerEnds: Date? = nil
 }
 
 /// A cosmetic (and price-changing) mutation a crop can come out with when
@@ -546,7 +548,9 @@ final class GameStore: ObservableObject {
         if info.kind == "seed", Catalog.cropByName[info.name] != nil {
             tiles[key] = Tile(seed: info.name, sprinkler: nil, progress: 0)
         } else if info.kind == "gear", let tier = Int(info.name), Catalog.sprinkler(tier: tier) != nil {
-            tiles[key] = Tile(seed: nil, sprinkler: tier, progress: 0)
+            let sp = Catalog.sprinkler(tier: tier)!
+            tiles[key] = Tile(seed: nil, sprinkler: tier, progress: 0,
+                              sprinklerEnds: Date().addingTimeInterval(sp.duration))
         } else {
             return false
         }
@@ -565,20 +569,42 @@ final class GameStore: ObservableObject {
 
     // ---- growing ----
     // How fast a tile grows: the season sets a baseline (rain speeds things
-    // up, snow/winter slows them down), and a nearby sprinkler multiplies
-    // that further (the best sprinkler in the surrounding 3x3 area wins).
+    // up, snow/winter slows them down), and a working sprinkler nearby
+    // multiplies that further (the best one in the surrounding 3x3 area wins).
+    // A sprinkler stops working after a while (see `Sprinkler.duration`).
     func speed(forKey key: String) -> Double {
+        Season.current.growthMultiplier * sprinklerBoost(forKey: key, over: 0, now: Date())
+    }
+
+    /// The sprinkler speed-up for a tile over the last `dt` seconds ending at
+    /// `now`. A sprinkler that ran out part-way through only counts for the
+    /// part where it was still working. (`dt` = 0 asks "right now".)
+    func sprinklerBoost(forKey key: String, over dt: Double, now: Date) -> Double {
         let spot = tileCoords(key)
-        var sprinklerSpeed = 1.0
+        let windowStart = now.addingTimeInterval(-dt)
+        var best = 1.0
         for dc in -1...1 {
             for dr in -1...1 {
-                if let tier = tiles[tileKey(spot.col + dc, spot.row + dr)]?.sprinkler,
-                   let sp = Catalog.sprinkler(tier: tier) {
-                    sprinklerSpeed = max(sprinklerSpeed, sp.speed)
+                guard let tile = tiles[tileKey(spot.col + dc, spot.row + dr)],
+                      let tier = tile.sprinkler, let sp = Catalog.sprinkler(tier: tier) else { continue }
+                var share = 1.0   // fraction of the window it was working
+                if let ends = tile.sprinklerEnds {
+                    if dt > 0 {
+                        share = max(0, min(1, ends.timeIntervalSince(windowStart) / dt))
+                    } else {
+                        share = ends > now ? 1 : 0
+                    }
                 }
+                best = max(best, 1 + (sp.speed - 1) * share)
             }
         }
-        return Season.current.growthMultiplier * sprinklerSpeed
+        return best
+    }
+
+    /// Seconds a placed sprinkler has left (nil if it has no end, or isn't one).
+    func sprinklerTimeLeft(_ tile: Tile, now: Date = Date()) -> TimeInterval? {
+        guard tile.sprinkler != nil, let ends = tile.sprinklerEnds else { return nil }
+        return max(0, ends.timeIntervalSince(now))
     }
 
     /// Grows plants by the real time since the last update. Also called when
@@ -591,14 +617,23 @@ final class GameStore: ObservableObject {
         tick(dt)
     }
 
-    func tick(_ dt: Double) {
+    func tick(_ dt: Double, now: Date = Date()) {
         var updated = tiles
         var changed = false
+        let seasonSpeed = Season.current.growthMultiplier
         for (key, tile) in tiles {
             guard let seed = tile.seed, let crop = Catalog.cropByName[seed],
                   tile.progress < crop.growSeconds else { continue }
-            updated[key]?.progress = min(crop.growSeconds, tile.progress + dt * speed(forKey: key))
+            let boost = sprinklerBoost(forKey: key, over: dt, now: now)
+            updated[key]?.progress = min(crop.growSeconds, tile.progress + dt * seasonSpeed * boost)
             changed = true
+        }
+        // Sprinklers that have run out disappear, freeing the plot
+        for (key, tile) in tiles where tile.sprinkler != nil {
+            if let ends = tile.sprinklerEnds, ends <= now {
+                updated[key] = nil
+                changed = true
+            }
         }
         if changed { tiles = updated }
         maybeStrikeTornado(dt: dt)
@@ -613,7 +648,8 @@ final class GameStore: ObservableObject {
         let spot = tileCoords(key)
         for dc in -1...1 {
             for dr in -1...1 {
-                if tiles[tileKey(spot.col + dc, spot.row + dr)]?.sprinkler != nil { return true }
+                if let tile = tiles[tileKey(spot.col + dc, spot.row + dr)], tile.sprinkler != nil,
+                   (tile.sprinklerEnds ?? .distantFuture) > Date() { return true }
             }
         }
         return false
