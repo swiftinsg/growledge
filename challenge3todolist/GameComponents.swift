@@ -106,18 +106,12 @@ struct ItemIcon: View {
                     .resizable()
                     .scaledToFit()
                     .padding(5)
-            } else if let crop, let icon = crop.systemIcon {
-                Circle().fill((mutation.tint ?? crop.iconColor).opacity(0.32))
-                Image(systemName: icon)
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundStyle(mutation.tint ?? crop.iconColor)
-                    .padding(size * 0.24)
-            } else {
-                Image(info.imageName)
-                    .resizable()
-                    .scaledToFit()
-                    .colorMultiply(mutation.tint ?? .white)
+            } else if info.kind == "seed", let crop {
+                // Seeds are drawn as a packet, never as the fruit
+                SeedPacketView(style: crop.style, size: size)
+            } else if let crop {
+                // Grown fruit (tinted when it has a mutation)
+                FruitView(style: crop.style, size: size, tint: mutation.tint)
             }
 
             if mutation != .none {
@@ -293,7 +287,7 @@ struct TutorialOverlay: View {
 
     private let pages: [TutorialPage] = [
         TutorialPage(icon: "leaf.fill", title: "Welcome to your Garden",
-                     text: "Press and hold a seed on the right edge of the garden, then drag it onto an empty tile to plant it. The tile glows green when it's a good spot.",
+                     text: "Open the Garden tab, then press and hold a seed on the right edge and drag it onto an empty tile to plant it. Your plants also show up on the Home screen.",
                      tint: Theme.good),
         TutorialPage(icon: "hand.tap.fill", title: "Harvesting",
                      text: "Tap any crop once it's ready to harvest just that one — or hold the \"Hold to Harvest All\" button to collect everything at once.",

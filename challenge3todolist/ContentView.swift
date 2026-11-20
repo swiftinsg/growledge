@@ -27,10 +27,6 @@ struct ContentView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var gameStarted = false
-    @State private var showBar = true
-    @State private var showStreak = true
-    @State private var showButton = true
     @State private var showingHub = false
 
     var body: some View {
@@ -94,6 +90,14 @@ struct ContentView: View {
                     Label("Home", systemImage: "house.fill")
                 }
 
+            // The garden has its own tab; Home only shows the plants behind it.
+            NavigationStack {
+                Game()
+            }
+            .tabItem {
+                Label("Garden", systemImage: "leaf.fill")
+            }
+
             HistoryView()
                 .tabItem {
                     Label("History", systemImage: "clock.fill")
@@ -135,23 +139,13 @@ struct ContentView: View {
     private var homeTab: some View {
         NavigationStack {
             ZStack {
-                // The garden only shows on the Home tab
+                // The plants you have growing, shown behind the Home card
                 GardenBackground()
-                    .onTapGesture {
-                        if !gameStarted && showBar {
-                            Haptics.tap()
-                            startGame()
-                        }
-                    }
 
-                // Home HUD: mission, progress bar, streak, and the Study link
                 VStack(spacing: 18) {
                     // One tidy card: goal and streak on top, the weekly bar,
                     // then hours studied and the Hub button underneath.
                     homeCard
-                        .opacity(showBar ? 1 : 0)
-                        .scaleEffect(showBar ? 1 : 0.9)
-                        .blur(radius: showBar ? 0 : 10)
                         .fadeIn(order: 1)
 
                     Spacer()
@@ -169,27 +163,14 @@ struct ContentView: View {
                             .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
                     }
                     .bouncy()
-                    .opacity(showButton ? 1 : 0)
-                    .scaleEffect(showButton ? 1 : 0.5)
-                    .blur(radius: showButton ? 0 : 10)
-                    .allowsHitTesting(showButton && !gameStarted)
                     .fadeIn(order: 3)
 
                     Spacer()
                 }
                 .padding()
-                .allowsHitTesting(!gameStarted)
-
-                // The garden game sits on top of everything once started
-                if gameStarted {
-                    Game(onExit: exitGame)
-                        .transition(.opacity)
-                }
             }
             .tabFadeRoot()
             .toolbar(.hidden, for: .navigationBar)
-            // Hide the tab bar while playing the garden game
-            .toolbar(gameStarted ? .hidden : .visible, for: .tabBar)
         }
     }
 
@@ -258,36 +239,6 @@ struct ContentView: View {
         .background(Capsule().fill(streak > 0 ? Color.orange.opacity(0.16) : Color.white.opacity(0.08)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(streak) day study streak")
-    }
-
-    // MARK: - Game transitions
-
-    private func startGame() {
-        withAnimation(.easeIn(duration: 0.4)) {
-            showBar = false
-        }
-        withAnimation(.easeIn(duration: 0.4).delay(0.2)) {
-            showStreak = false
-        }
-        withAnimation(.easeIn(duration: 0.4).delay(0.4)) {
-            showButton = false
-        }
-        withAnimation(.easeIn.delay(0.8)) {
-            gameStarted = true
-        }
-    }
-
-    private func exitGame() {
-        withAnimation(.easeOut(duration: 0.4)) {
-            gameStarted = false
-            showBar = true
-        }
-        withAnimation(.easeOut(duration: 0.4).delay(0.2)) {
-            showStreak = true
-        }
-        withAnimation(.easeOut(duration: 0.4).delay(0.4)) {
-            showButton = true
-        }
     }
 }
 

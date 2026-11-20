@@ -2,6 +2,9 @@ import Foundation
 import Testing
 @testable import challenge3todolist
 
+/// The cheapest, fastest-growing crop, used wherever a test just needs "a crop".
+private let firstCrop = Catalog.crops[0].name
+
 /// The tests change `GameStore.tiles` in memory only, and call `tick` just a
 /// few times (it saves every 20th tick), so the app's saved garden is not touched.
 ///
@@ -11,7 +14,7 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct GardenGrowthTests {
-    private let carrotGrowSeconds = Catalog.cropByName["carrot"]!.growSeconds
+    private let carrotGrowSeconds = Catalog.cropByName[firstCrop]!.growSeconds
 
     private func pin(_ season: Season = .sunny) { Season.forcedForTests = season }
     private func unpin() { Season.forcedForTests = nil }
@@ -23,7 +26,7 @@ struct GardenGrowthTests {
     @Test func plantGrowsByTheTimePassedTimesTheWeather() {
         pin(); defer { unpin() }
         let store = GameStore()
-        store.tiles = ["1,1": Tile(seed: "carrot")]
+        store.tiles = ["1,1": Tile(seed: firstCrop)]
 
         store.tick(10)
 
@@ -34,7 +37,7 @@ struct GardenGrowthTests {
         pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
-            "1,1": Tile(seed: "carrot"),
+            "1,1": Tile(seed: firstCrop),
             "0,1": Tile(sprinkler: 1)               // tier 1 = 1.5x
         ]
 
@@ -48,7 +51,7 @@ struct GardenGrowthTests {
         pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
-            "1,1": Tile(seed: "carrot"),
+            "1,1": Tile(seed: firstCrop),
             "3,3": Tile(sprinkler: 5)
         ]
 
@@ -59,7 +62,7 @@ struct GardenGrowthTests {
         pin(); defer { unpin() }
         let store = GameStore()
         store.tiles = [
-            "1,1": Tile(seed: "carrot"),
+            "1,1": Tile(seed: firstCrop),
             "0,0": Tile(sprinkler: 1),
             "2,2": Tile(sprinkler: 2)               // tier 2 = 2x
         ]
@@ -70,7 +73,7 @@ struct GardenGrowthTests {
     @Test func rainSpeedsPlantsUpAndSnowSlowsThemDown() {
         defer { unpin() }
         let store = GameStore()
-        store.tiles = ["1,1": Tile(seed: "carrot")]
+        store.tiles = ["1,1": Tile(seed: firstCrop)]
 
         pin(.rainy)
         let rainy = store.speed(forKey: "1,1")
@@ -88,7 +91,7 @@ struct GardenGrowthTests {
     @Test func growthStopsWhenThePlantIsReady() {
         pin(); defer { unpin() }
         let store = GameStore()
-        store.tiles = ["1,1": Tile(seed: "carrot")]
+        store.tiles = ["1,1": Tile(seed: firstCrop)]
 
         store.tick(carrotGrowSeconds * 10)
 
@@ -98,10 +101,10 @@ struct GardenGrowthTests {
 
     @Test func plantIsNotReadyBeforeItIsFullyGrown() {
         let store = GameStore()
-        let almost = Tile(seed: "carrot", progress: carrotGrowSeconds - 1)
+        let almost = Tile(seed: firstCrop, progress: carrotGrowSeconds - 1)
 
         #expect(!store.isReady(almost))
-        #expect(store.isReady(Tile(seed: "carrot", progress: carrotGrowSeconds)))
+        #expect(store.isReady(Tile(seed: firstCrop, progress: carrotGrowSeconds)))
     }
 
     @Test func emptyTilesAndSprinklersAreNeverReady() {
@@ -123,7 +126,7 @@ struct GardenGrowthTests {
     @Test func zeroTimePassedChangesNothing() {
         pin(); defer { unpin() }
         let store = GameStore()
-        store.tiles = ["1,1": Tile(seed: "carrot", progress: 5)]
+        store.tiles = ["1,1": Tile(seed: firstCrop, progress: 5)]
 
         store.tick(0)
 

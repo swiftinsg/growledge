@@ -17,7 +17,9 @@ enum ShopType: String, Identifiable {
 // NOTE: Game must be shown inside a NavigationStack (ContentView's home tab
 // provides one) so the Buy and Sell navigation links work.
 struct Game: View {
-    var onExit: () -> Void
+    /// Only set when the garden is shown on top of something else; as its own
+    /// tab there is nothing to exit.
+    var onExit: (() -> Void)? = nil
 
     @ObservedObject private var store = GameStore.shared
     @State private var plotOffset = CGSize.zero
@@ -125,8 +127,10 @@ struct Game: View {
 
         // Exit (top left)
         .overlay(alignment: .topLeading) {
-            GameButton(icon: "xmark", width: 50, height: 50) { onExit() }
-                .padding()
+            if let onExit {
+                GameButton(icon: "xmark", width: 50, height: 50) { onExit() }
+                    .padding()
+            }
         }
 
         // Relocate + weather readout (top right)
@@ -368,25 +372,8 @@ struct TileContent: View {
                 let timeLeft = (crop.growSeconds - tile.progress) / speed
 
                 VStack(spacing: 2) {
-                    Group {
-                        if let icon = crop.systemIcon {
-                            ZStack {
-                                Circle().fill(crop.iconColor.opacity(0.3))
-                                Image(systemName: icon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .foregroundStyle(crop.iconColor)
-                                    .padding(7)
-                            }
-                        } else {
-                            Image(seed)
-                                .resizable()
-                                .scaledToFit()
-                        }
-                    }
-                    .frame(width: 30, height: 30)
-                    .scaleEffect(0.55 + 0.45 * f)
-                    .opacity(0.7 + 0.3 * f)
+                    // seed in the soil, then a sprout, then the fruit
+                    PlantStageView(style: crop.style, progress: f, size: 32)
 
                     // progress bar
                     ZStack(alignment: .leading) {
@@ -468,6 +455,6 @@ private struct WeatherBadge: View {
 
 #Preview {
     NavigationStack {
-        Game(onExit: {})
+        Game()
     }
 }

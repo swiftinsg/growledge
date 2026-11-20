@@ -287,24 +287,24 @@ final class GameStore: ObservableObject {
         }
         if d.object(forKey: "points") == nil { d.set(Theme.startingPoints, forKey: "points") }
         points = d.integer(forKey: "points")
-        inventory = (d.dictionary(forKey: "garden.inventory") as? [String: Int]) ?? [:]
+        inventory = GardenMigration.inventory((d.dictionary(forKey: "garden.inventory") as? [String: Int]) ?? [:])
         if let data = d.data(forKey: "garden.cropHarvests"),
            let saved = try? JSONDecoder().decode([String: [HarvestedUnit]].self, from: data) {
-            cropHarvests = saved
+            cropHarvests = GardenMigration.harvests(saved)
         } else if let legacy = d.dictionary(forKey: "garden.cropWeights") as? [String: [Double]] {
             // Carries over weights saved before mutations existed.
-            cropHarvests = legacy.mapValues { $0.map { HarvestedUnit(weight: $0, mutation: .none) } }
+            cropHarvests = GardenMigration.harvests(legacy.mapValues { $0.map { HarvestedUnit(weight: $0, mutation: .none) } })
         } else {
             cropHarvests = [:]
         }
         if let data = d.data(forKey: "garden.tiles"),
            let saved = try? JSONDecoder().decode([String: Tile].self, from: data) {
-            tiles = saved
+            tiles = GardenMigration.tiles(saved)
         } else {
             tiles = [:]
         }
 
-        discoveredMutations = Set((d.array(forKey: "stats.discoveredMutations") as? [String]) ?? [])
+        discoveredMutations = GardenMigration.discoveredMutations(Set((d.array(forKey: "stats.discoveredMutations") as? [String]) ?? []))
         unlockedAchievements = Set((d.array(forKey: "stats.unlockedAchievements") as? [String]) ?? [])
         claimedQuestIDs = Set((d.array(forKey: "stats.claimedQuestIDs") as? [String]) ?? [])
         lifetimeCropsHarvested = d.integer(forKey: "stats.lifetimeCropsHarvested")
