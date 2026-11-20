@@ -12,7 +12,6 @@
   },
   "files": [
     { "kind": "folder", "path": "challenge3todolist", "target-membership": [ "challenge3todolist" ] },
-    { "kind": "folder", "path": "challenge3todolistTests", "target-membership": [ "challenge3todolistTests" ] },
     {
       "kind": "group",
       "name": "Products",
