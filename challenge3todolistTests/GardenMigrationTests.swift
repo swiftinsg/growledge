@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 @testable import challenge3todolist
 
 /// Gardens saved before the mythical-fruit rework must keep working.
@@ -61,6 +62,15 @@ struct CatalogArtTests {
         let banned = ["doge", "obama", "trump", "ronaldo", "ishowspeed", "sahur", "patapim", "skibidi", "brainrot"]
         for crop in Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops {
             for word in banned { #expect(!crop.name.contains(word)) }
+        }
+    }
+
+    @Test func everyPixelPictureNamedInTheCatalogExists() {
+        for crop in Catalog.crops {
+            guard let art = crop.art else { continue }
+            for name in [art.fruit, art.sapling, art.tree].compactMap({ $0 }) {
+                #expect(UIImage(named: name) != nil, "\(crop.name): missing picture \(name)")
+            }
         }
     }
 }

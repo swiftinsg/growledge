@@ -368,7 +368,7 @@ struct TileContent: View {
 
                 VStack(spacing: 2) {
                     // seed in the soil, then a sprout, then the fruit
-                    PlantStageView(style: crop.style, progress: f, size: 32)
+                    PlantStageView(crop: crop, progress: f, size: 32)
 
                     // progress bar
                     ZStack(alignment: .leading) {

@@ -8,12 +8,25 @@ import SwiftUI
 // =====================================================================
 // MARK: - 2. CATALOG  (all products, prices and growth times)
 // =====================================================================
+/// Hand-made pixel pictures for a crop (names of images in the asset catalog).
+/// Any that are missing fall back to the drawn art in FruitArt.swift.
+struct CropArt {
+    /// The harvested fruit.
+    var fruit: String? = nil
+    /// The young plant while it grows.
+    var sapling: String? = nil
+    /// The grown plant, shown when it is ready to harvest.
+    var tree: String? = nil
+}
+
 struct Crop: Identifiable {
     let name: String
     let price: Int
     let growSeconds: Double
     /// How the seed packet, the growing plant and the fruit are drawn (see FruitArt.swift).
     var style: FruitStyle = .fallback
+    /// Pixel pictures, when we have them.
+    var art: CropArt? = nil
     /// Event crops only exist in the shop during their season (see `Catalog.availableEventCrops`).
     var event: SeasonalEvent? = nil
     var id: String { name }
@@ -58,6 +71,21 @@ enum Catalog {
 
     static let cropNames: [String] = fruitDefs.map(\.name)
 
+    /// The pixel art we have so far. (Some of the picture files are named
+    /// "seed" but show the fruit, so they are used as the fruit.)
+    private static let pixelArt: [String: CropArt] = [
+        "dewdrop berry":   CropArt(fruit: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
+        "mossglow pear":   CropArt(fruit: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
+        "ember fig":       CropArt(fruit: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
+        "moonbloom plum":  CropArt(fruit: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
+        "sunscale citrus": CropArt(fruit: "sunscalecitrusseeds", sapling: nil, tree: "sunscalecitrusfruit"),
+        "mermaid pearl":   CropArt(fruit: nil, sapling: "mermaidpearlsapling", tree: "mermaidpearltree"),
+        "ruby crystal":    CropArt(fruit: nil, sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
+        "golden apple":    CropArt(fruit: "goldenapple", sapling: "goldenapplesapling", tree: "goldenappletree"),
+        "aurora melon":    CropArt(fruit: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
+        "celestial peach": CropArt(fruit: "celestialpeach", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
+    ]
+
     static let minPrice = 10.0
     static let maxPrice = 1_000_000_000.0
     static let minGrowSeconds = 600.0       // 10 minutes
@@ -71,7 +99,7 @@ enum Catalog {
             let step = pow(10.0, floor(log10(raw)) - 1)          // keep 2 digits, e.g. 4,800
             let price = Int((raw / step).rounded() * step)
             let grow = (minGrowSeconds * pow(maxGrowSeconds / minGrowSeconds, t)).rounded()
-            return Crop(name: name, price: price, growSeconds: max(1, grow), style: fruitDefs[i].style)
+            return Crop(name: name, price: price, growSeconds: max(1, grow), style: fruitDefs[i].style, art: pixelArt[name])
         }
     }()
 

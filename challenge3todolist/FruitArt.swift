@@ -161,6 +161,47 @@ private struct LeafShape: Shape {
 private let leafGreen = Color(hex: 0x4CAF50)
 private let stemBrown = Color(hex: 0x6D4C41)
 
+// MARK: - Pixel pictures
+
+/// One of the hand-made pixel pictures, drawn sharp (not blurred) at any size.
+struct PixelImage: View {
+    let name: String
+    var size: CGFloat = 44
+    var tint: Color? = nil
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .interpolation(.none)
+            .scaledToFit()
+            .colorMultiply(tint ?? .white)
+            .frame(width: size, height: size)
+    }
+}
+
+/// The harvested fruit of a crop: its pixel picture if there is one,
+/// otherwise the drawn fruit.
+struct CropFruitView: View {
+    let crop: Crop
+    var size: CGFloat = 44
+    var tint: Color? = nil
+
+    var body: some View {
+        if let name = crop.art?.fruit {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [(tint ?? crop.style.primary).opacity(0.4), .clear],
+                                         center: .center, startRadius: 0, endRadius: size * 0.55))
+                    .frame(width: size * 1.1, height: size * 1.1)
+                PixelImage(name: name, size: size * 0.8, tint: tint)
+            }
+            .frame(width: size, height: size)
+        } else {
+            FruitView(style: crop.style, size: size, tint: tint)
+        }
+    }
+}
+
 // MARK: - The grown fruit
 
 /// A fully grown fruit, with a soft glow behind it. `tint` is used by
@@ -322,7 +363,8 @@ struct SeedPacketView: View {
 /// sprout that gets bigger (and sets a small bud in the fruit's colour near
 /// the end). It switches to the real fruit when ready.
 struct PlantStageView: View {
-    let style: FruitStyle
+    let crop: Crop
+    private var style: FruitStyle { crop.style }
     /// 0...1: how far along the growing is.
     let progress: Double
     var size: CGFloat = 32
@@ -330,9 +372,17 @@ struct PlantStageView: View {
     var body: some View {
         Group {
             if progress >= 1 {
-                FruitView(style: style, size: size * 1.15)
+                // ready: the grown plant if we have a picture of it, else the fruit
+                if let tree = crop.art?.tree {
+                    PixelImage(name: tree, size: size * 1.1)
+                } else {
+                    CropFruitView(crop: crop, size: size * 1.15)
+                }
             } else if progress < 0.12 {
                 seedInSoil
+            } else if let sapling = crop.art?.sapling {
+                PixelImage(name: sapling, size: size * (0.55 + 0.45 * progress))
+                    .frame(maxHeight: .infinity, alignment: .bottom)
             } else {
                 sprout
             }
@@ -381,9 +431,9 @@ struct PlantStageView: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
             ForEach(Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops) { crop in
                 VStack(spacing: 6) {
-                    FruitView(style: crop.style, size: 64)
+                    CropFruitView(crop: crop, size: 64)
                     SeedPacketView(style: crop.style, size: 48)
-                    PlantStageView(style: crop.style, progress: 0.7, size: 48)
+                    PlantStageView(crop: crop, progress: 0.7, size: 48)
                     Text(crop.name).font(.caption2)
                 }
             }

@@ -111,7 +111,7 @@ struct ItemIcon: View {
                 SeedPacketView(style: crop.style, size: size)
             } else if let crop {
                 // Grown fruit (tinted when it has a mutation)
-                FruitView(style: crop.style, size: size, tint: mutation.tint)
+                CropFruitView(crop: crop, size: size, tint: mutation.tint)
             }
 
             if mutation != .none {
