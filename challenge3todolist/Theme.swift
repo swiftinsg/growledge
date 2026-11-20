@@ -10,9 +10,8 @@ import SwiftUI
 // =====================================================================
 enum Theme {
     // The garden ground never changes colour, whatever the season
-    static let grass = Color(red: 0.40, green: 0.66, blue: 0.32)
-    static let soilDark = Color(red: 0.20, green: 0.16, blue: 0.14)
-    static let soilLight = Color(red: 0.30, green: 0.24, blue: 0.20)
+    static let grass = Color(red: 0.40, green: 0.66, blue: 0.50)
+    
 
     // Season-dependent colours: they follow the current season (see Seasons.swift)
     static var backdropTop: Color { Season.current.backdropTop }
@@ -36,8 +35,8 @@ enum Theme {
     /// iPhone (about 94pt on an iPhone SE).
     static var tileSize: CGFloat { (UIScreen.main.bounds.width * 0.25).rounded() }
     // The garden is a small fixed grid, so there are only a few big plots.
-    static let gardenCols = 2
-    static let gardenRows = 9
+    static let gardenCols = 4
+    static let gardenRows = 4
 
     static func isInGarden(col: Int, row: Int) -> Bool {
         (0..<gardenCols).contains(col) && (0..<gardenRows).contains(row)
