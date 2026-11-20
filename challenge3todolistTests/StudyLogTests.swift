@@ -258,3 +258,57 @@ struct SubjectTotalTests {
         #expect(SubjectTotal.totals(for: []).isEmpty)
     }
 }
+
+// MARK: - Weekly insights
+
+@MainActor
+struct WeekInsightsTests {
+    private func insights(_ sessions: [StudySession], previous: TimeInterval) -> WeekInsights {
+        let blocks = StudyLogStore(previewSessions: sessions).blocks(weekStarting: date(9), calendar: calendar)
+        return WeekInsights(blocks: blocks, previousTotal: previous)
+    }
+
+    @Test func countsDaysAndFindsTheBestDay() {
+        let result = insights([
+            session(from: date(9, 9), to: date(9, 10)),      // Mon 1h
+            session(from: date(11, 9), to: date(11, 12)),    // Wed 3h
+            session(from: date(11, 20), to: date(11, 21))    // Wed +1h
+        ], previous: 0)
+        #expect(result.daysStudied == 2)
+        #expect(result.bestDay == 2)
+        #expect(result.bestDaySeconds == 4 * 3600)
+        #expect(result.total == 5 * 3600)
+    }
+
+    @Test func anEmptyWeekHasNoBestDay() {
+        let result = insights([], previous: 3600)
+        #expect(result.bestDay == nil)
+        #expect(result.daysStudied == 0)
+        #expect(result.headline.hasPrefix("Nothing logged yet"))
+    }
+
+    @Test func studyingMoreThanTheWeekBeforeIsUp() {
+        let result = insights([session(from: date(9, 9), to: date(9, 11))], previous: 3600)
+        #expect(result.changePercent == 100)
+        #expect(result.trend == .up)
+        #expect(result.headline.contains("Up 100%"))
+    }
+
+    @Test func studyingLessIsDownAndSaysHowMuch() {
+        let result = insights([session(from: date(9, 9), to: date(9, 10))], previous: 7200)
+        #expect(result.changePercent == -50)
+        #expect(result.trend == .down)
+        #expect(result.headline.hasPrefix("50% less"))
+    }
+
+    @Test func smallChangesCountAsSteady() {
+        let result = insights([session(from: date(9, 9), to: date(9, 10))], previous: 3600 + 120)
+        #expect(result.trend == .steady)
+    }
+
+    @Test func noWeekBeforeIsAFreshStart() {
+        let result = insights([session(from: date(9, 9), to: date(9, 10))], previous: 0)
+        #expect(result.changePercent == nil)
+        #expect(result.trend == .none)
+    }
+}

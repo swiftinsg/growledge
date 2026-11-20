@@ -189,3 +189,52 @@ struct SubjectTotal: Identifiable {
         return totals.values.sorted { $0.seconds > $1.seconds }
     }
 }
+
+/// A few numbers and one encouraging sentence about a week of studying,
+/// shown at the top of History.
+struct WeekInsights {
+    let total: TimeInterval
+    let previousTotal: TimeInterval
+    /// How many of the 7 days had any study time.
+    let daysStudied: Int
+    /// 0 = Monday. nil if nothing was studied.
+    let bestDay: Int?
+    let bestDaySeconds: TimeInterval
+
+    init(blocks: [StudyBlock], previousTotal: TimeInterval) {
+        total = blocks.reduce(0) { $0 + $1.seconds }
+        self.previousTotal = previousTotal
+        var perDay: [Int: TimeInterval] = [:]
+        for block in blocks { perDay[block.day, default: 0] += block.seconds }
+        daysStudied = perDay.count
+        let best = perDay.max { $0.value < $1.value }
+        bestDay = best?.key
+        bestDaySeconds = best?.value ?? 0
+    }
+
+    /// Percent change from the week before; nil when there is no week before to compare with.
+    var changePercent: Int? {
+        guard previousTotal > 0 else { return nil }
+        return Int(((total - previousTotal) / previousTotal * 100).rounded())
+    }
+
+    /// Only a clear change (10% or more) counts as up or down.
+    var trend: Trend {
+        guard let change = changePercent else { return .none }
+        if change >= 10 { return .up }
+        if change <= -10 { return .down }
+        return .steady
+    }
+
+    enum Trend { case none, up, down, steady }
+
+    var headline: String {
+        if total == 0 { return "Nothing logged yet. One short session gets the week going." }
+        switch trend {
+        case .none: return "A fresh start. Every session adds up."
+        case .up: return "Up \(changePercent ?? 0)% on the week before. Keep it going!"
+        case .down: return "\(abs(changePercent ?? 0))% less than the week before. One session today gets you back on track."
+        case .steady: return "Steady, about the same as the week before. Consistency wins."
+        }
+    }
+}

@@ -45,6 +45,15 @@ struct Subject: Identifiable, Hashable, Codable {
     /// It has a fixed id and is never saved with the user's own subjects.
     static let none = Subject(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                               name: "No Subject", color: .gray)
+
+    /// The subjects a new user starts with. They can be renamed or deleted
+    /// like any other, and once deleted they don't come back.
+    static var starterSubjects: [Subject] {
+        [Subject(name: "Math", color: .blue),
+         Subject(name: "English", color: .red),
+         Subject(name: "Science", color: .green),
+         Subject(name: "Humanities", color: .orange)]
+    }
 }
 
 /// One to-do item.
@@ -74,6 +83,8 @@ final class TodoStore: ObservableObject {
 
     static let subjectsKey = "todo.subjects"
     static let remindersKey = "todo.reminders"
+    /// Set once the starter subjects were offered, so deleting them sticks.
+    static let seededKey = "todo.starterSubjectsAdded"
 
     private let defaults: UserDefaults
 
@@ -103,7 +114,18 @@ final class TodoStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Reminder].self, from: data) {
             reminders = saved
         }
+
+        // First launch ever: start with a few common subjects. Anyone who
+        // already has saved subjects (or tasks) keeps exactly what they have.
+        if !defaults.bool(forKey: Self.seededKey) {
+            let isNewUser = defaults.data(forKey: Self.subjectsKey) == nil
+                && defaults.data(forKey: Self.remindersKey) == nil
+            if isNewUser { subjects = Subject.starterSubjects }
+            defaults.set(true, forKey: Self.seededKey)
+        }
+
         isLoaded = true
+        save()
     }
 
     private func save() {

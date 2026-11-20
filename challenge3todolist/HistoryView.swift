@@ -25,6 +25,14 @@ struct HistoryView: View {
         return calendar.date(byAdding: .weekOfYear, value: weekOffset, to: thisWeek) ?? thisWeek
     }
 
+    /// This week's numbers, compared with the week before the one on screen.
+    private func insights(for blocks: [StudyBlock]) -> WeekInsights {
+        let previousStart = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) ?? weekStart
+        let previousTotal = log.blocks(weekStarting: previousStart, calendar: calendar)
+            .reduce(0) { $0 + $1.seconds }
+        return WeekInsights(blocks: blocks, previousTotal: previousTotal)
+    }
+
     private var weekTitle: String {
         let end = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
         let format = Date.FormatStyle().month(.abbreviated).day()
@@ -46,13 +54,17 @@ struct HistoryView: View {
 
                         VStack(spacing: 2) {
                             Text(durationText(totalSeconds))
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .font(.system(size: 40, weight: .bold))
                                 .contentTransition(.numericText())
                             Text("studied this week")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                         .fadeIn(order: 1)
+
+                        insightsCard(insights(for: blocks))
+                            .padding(.horizontal)
+                            .fadeIn(order: 2)
 
                         subjectKey(SubjectTotal.totals(for: blocks))
                             .fadeIn(order: 2)
@@ -73,6 +85,49 @@ struct HistoryView: View {
 
     // MARK: - Pieces
 
+    /// A short sentence about how the week is going, plus three small numbers.
+    private func insightsCard(_ insights: WeekInsights) -> some View {
+        let symbol: String
+        let tint: Color
+        switch insights.trend {
+        case .up: (symbol, tint) = ("arrow.up.right.circle.fill", Theme.good)
+        case .down: (symbol, tint) = ("arrow.down.right.circle.fill", Theme.gold)
+        case .steady: (symbol, tint) = ("equal.circle.fill", Theme.accent)
+        case .none: (symbol, tint) = ("sparkles", Theme.gold)
+        }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.title2)
+                    .foregroundStyle(tint)
+                Text(insights.headline)
+                    .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 0) {
+                stat("Days studied", "\(insights.daysStudied) of 7")
+                stat("Best day", insights.bestDay.map { "\(dayNames[$0]) · \(durationText(insights.bestDaySeconds))" } ?? "–")
+                stat("Week before", durationText(insights.previousTotal))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func stat(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var weekPicker: some View {
         HStack {
             Button {
@@ -84,7 +139,7 @@ struct HistoryView: View {
 
             Spacer()
             Text(weekTitle)
-                .font(.system(.headline, design: .rounded))
+                .font(.system(.headline))
             Spacer()
 
             Button {

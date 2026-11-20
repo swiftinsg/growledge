@@ -34,10 +34,33 @@ struct TodoStoreTests {
         #expect(second.subjects.map(\.name) == ["Math"])
     }
 
-    @Test func aFreshInstallStartsEmpty() {
+    @Test func aFreshInstallStartsWithTheStarterSubjectsAndNoTasks() {
         let store = TodoStore(defaults: makeDefaults())
-        #expect(store.subjects.isEmpty)
+        #expect(store.subjects.map(\.name) == ["Math", "English", "Science", "Humanities"])
         #expect(store.reminders.isEmpty)
+    }
+
+    @Test func deletingAStarterSubjectSticksAfterRestart() {
+        let defaults = makeDefaults()
+        let store = TodoStore(defaults: defaults)
+        store.deleteSubject(store.subjects[0].id)
+
+        let next = TodoStore(defaults: defaults)
+        #expect(next.subjects.map(\.name) == ["English", "Science", "Humanities"])
+    }
+
+    @Test func deletingEveryStarterSubjectDoesNotBringThemBack() {
+        let defaults = makeDefaults()
+        let store = TodoStore(defaults: defaults)
+        for subject in store.subjects { store.deleteSubject(subject.id) }
+
+        #expect(TodoStore(defaults: defaults).subjects.isEmpty)
+    }
+
+    @Test func existingUsersKeepTheirOwnSubjectsWithoutStarters() throws {
+        let defaults = makeDefaults()
+        try preload(subjects: [Subject(name: "Art", color: .pink)], reminders: [], into: defaults)
+        #expect(TodoStore(defaults: defaults).subjects.map(\.name) == ["Art"])
     }
 
     @Test func newTasksAreSavedAndComeBackNextTime() {
@@ -48,7 +71,7 @@ struct TodoStoreTests {
         store.reminders.append(Reminder(title: "Sketch", dueDate: .now, subject: art))
 
         let next = TodoStore(defaults: defaults)
-        #expect(next.subjects.map(\.name) == ["Art"])
+        #expect(next.subjects.map(\.name) == ["Math", "English", "Science", "Humanities", "Art"])
         #expect(next.reminders.map(\.title) == ["Sketch"])
     }
 
