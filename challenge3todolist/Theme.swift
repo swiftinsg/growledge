@@ -32,7 +32,9 @@ enum Theme {
     static let coin = "✦"
 
     static let cornerRadius: CGFloat = 16
-    static let tileSize: CGFloat = 160
+    /// Sized from the screen width, so a plot looks the same share of every
+    /// iPhone (about 94pt on an iPhone SE).
+    static var tileSize: CGFloat { (UIScreen.main.bounds.width * 0.25).rounded() }
     // The garden is a small fixed grid, so there are only a few big plots.
     static let gardenCols = 2
     static let gardenRows = 9

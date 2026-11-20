@@ -64,10 +64,10 @@ struct Game: View {
             .ignoresSafeArea()
             .readFrame($gardenFrame)
             .onChange(of: gardenFrame.size) { _, size in
-                // Start (and stay) with the whole garden centred on screen.
+                // Start at the top of the garden, inside the panning limits.
                 guard size != .zero, !hasCentered else { return }
                 hasCentered = true
-                plotOffset = Theme.centeredGardenOffset(in: size)
+                plotOffset = clamped(CGSize(width: 0, height: 80))
                 savedOffset = plotOffset
             }
             .simultaneousGesture(panGesture)
@@ -116,10 +116,9 @@ struct Game: View {
             }
         }
 
-        // Relocate + weather readout (top right)
+        // Weather readout (top right)
         .overlay(alignment: .topTrailing) {
             VStack(spacing: 10) {
-                GameButton(icon: "location.fill", width: 50, height: 50) { relocate() }
                 // Read-only — the weather changes on its own, nobody picks it.
                 WeatherBadge()
             }
@@ -226,15 +225,24 @@ struct Game: View {
             }
     }
 
-    /// Keeps the small garden from being dragged off the screen.
+    /// Stops panning at the garden's edges, so you never scroll onto empty
+    /// ground. The margins leave room for the buttons at the top and bottom.
     func clamped(_ offset: CGSize) -> CGSize {
-        let centre = Theme.centeredGardenOffset(in: gardenFrame.size)
-        let slackX = max(abs(centre.width), 0) + 40
-        let slackY = max(abs(centre.height), 0) + 40
-        return CGSize(
-            width: min(max(offset.width, centre.width - slackX), centre.width + slackX),
-            height: min(max(offset.height, centre.height - slackY), centre.height + slackY)
+        CGSize(
+            width: clamp(offset.width, content: CGFloat(Theme.gardenCols) * Theme.tileSize,
+                         view: gardenFrame.width, before: 0, after: 92),
+            height: clamp(offset.height, content: CGFloat(Theme.gardenRows) * Theme.tileSize,
+                          view: gardenFrame.height, before: 80, after: 160)
         )
+    }
+
+    private func clamp(_ value: CGFloat, content: CGFloat, view: CGFloat,
+                       before: CGFloat, after: CGFloat) -> CGFloat {
+        let lowest = view - after - content   // far edge of the garden reached
+        let highest = before                  // near edge of the garden reached
+        // Smaller than the screen: no panning, just centred in the free space.
+        if lowest > highest { return before + (view - before - after - content) / 2 }
+        return min(max(value, lowest), highest)
     }
 
     // Which tile is under a point on the screen
@@ -340,14 +348,6 @@ struct Game: View {
         withAnimation { toast = text }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
             withAnimation { toast = nil }
-        }
-    }
-
-    // Slide the garden back to the starting spot
-    func relocate() {
-        withAnimation(.easeInOut(duration: 0.5)) {
-            plotOffset = Theme.centeredGardenOffset(in: gardenFrame.size)
-            savedOffset = plotOffset
         }
     }
 }
