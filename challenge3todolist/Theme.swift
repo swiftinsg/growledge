@@ -21,6 +21,8 @@ enum Theme {
     static var accent: Color { Season.current.accent }
 
     // Colours that stay the same in every season
+    /// Text on top of a solid accent-coloured button
+    static let buttonText = Color(red: 0.05, green: 0.09, blue: 0.13)
     static let panelBorder = Color.white.opacity(0.12)
     static let text = Color(red: 0.88, green: 0.92, blue: 0.96)
     static let subtext = Color(red: 0.88, green: 0.92, blue: 0.96).opacity(0.6)
@@ -29,7 +31,6 @@ enum Theme {
     static let bad = Color(red: 0.88, green: 0.45, blue: 0.50)
     static let coin = "✦"
 
-    static let buttonImage = "Image 1"      // background of every button
     static let cornerRadius: CGFloat = 16
     static let tileSize: CGFloat = 80
     static let tickSeconds = 0.25           // how often plants grow

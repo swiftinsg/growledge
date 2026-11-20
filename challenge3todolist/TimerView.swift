@@ -87,11 +87,27 @@ struct TimerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Spacer()
-                // Lets the user choose whether the timer takes over the
-                // whole screen or stays docked above the to-do list.
+        // Sized by the space it is given, so it also fits small phones where the
+        // Study screen shares its height with the to-do list.
+        GeometryReader { geo in
+            let compact = geo.size.height < 380
+            VStack(spacing: compact ? 8 : 16) {
+                countdownRing
+                    .frame(maxHeight: .infinity)
+
+                controls(buttonSize: compact ? 60 : 80)
+
+                Button("End Session", role: .destructive) {
+                    endSession()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(compact ? .small : .regular)
+                .disabled(studiedTime == 0)
+            }
+            .padding(compact ? 10 : 16)
+            // Lets the user choose whether the timer takes over the whole
+            // screen or stays docked above the to-do list.
+            .overlay(alignment: .topTrailing) {
                 Button {
                     Haptics.tap()
                     withAnimation(.easeInOut(duration: 0.3)) { isFullScreen = true }
@@ -99,28 +115,17 @@ struct TimerView: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .padding(8)
+                        .frame(width: 44, height: 44)
                         .background(.secondary.opacity(0.12), in: Circle())
                 }
                 .accessibilityLabel("Show timer full screen")
+                .padding(compact ? 4 : 8)
             }
-
-            countdownRing
-                .frame(maxHeight: .infinity)
-
-            controls
-
-            Button("End Session", role: .destructive) {
-                endSession()
-            }
-            .buttonStyle(.bordered)
-            .disabled(studiedTime == 0)
         }
-        .padding()
         .fullScreenCover(isPresented: $isFullScreen) {
             FullScreenTimerView(
                 ring: countdownRing,
-                controls: controls,
+                controls: { controls(buttonSize: $0) },
                 studyGoal: studyGoal,
                 studiedTime: studiedTime,
                 canEnd: studiedTime > 0,
@@ -159,44 +164,59 @@ struct TimerView: View {
     // MARK: - Subviews
 
     private var countdownRing: some View {
-        ZStack {
-            // A joyful little confetti sprinkle behind the ring during breaks.
-            if isBreak {
-                ConfettiLayer()
-                    .clipShape(Circle())
-                    .opacity(0.8)
+        GeometryReader { geo in
+            let d = max(min(geo.size.width, geo.size.height), 1)
+            let line = max(5, d * 0.035)
+            ZStack {
+                // A joyful little confetti sprinkle behind the ring during breaks.
+                if isBreak {
+                    ConfettiLayer()
+                        .clipShape(Circle())
+                        .opacity(0.8)
+                }
+
+                Circle()
+                    .stroke(Color.gray.opacity(0.25), lineWidth: line)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(phase.tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 0.1), value: progress)
+
+                // Everything inside the ring scales with the ring, so it never
+                // overflows on a small phone.
+                VStack(spacing: d * 0.03) {
+                    Text(isBreak ? "🎉 \(phase.title) Time!" : phase.title)
+                        .font(.system(size: max(12, d * 0.07), weight: .semibold))
+                        .foregroundStyle(phase.tint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    Text(formatted(displayedTime))
+                        .font(.system(size: d * 0.25, weight: .light))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.4)
+                        .lineLimit(1)
+
+                    if d >= 170 {
+                        statusLabel
+                            .controlSize(d < 240 ? .small : .regular)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                }
+                .padding(d * 0.12)
             }
-
-            Circle()
-                .stroke(Color.gray.opacity(0.25), lineWidth: 8)
-
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(phase.tint, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.1), value: progress)
-
-            VStack(spacing: 8) {
-                Text(isBreak ? "🎉 \(phase.title) Time!" : phase.title)
-                    .font(.headline)
-                    .foregroundStyle(phase.tint)
-
-                Text(formatted(displayedTime))
-                    .font(.system(size: 56, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-
-                statusLabel
+            .frame(width: d, height: d)
+            .contentShape(Circle())
+            // Tapping the ring while idle opens the duration editor.
+            .onTapGesture {
+                if state == .idle { isEditingDuration = true }
             }
-            .padding(24)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
-        .aspectRatio(1, contentMode: .fit)
-        .contentShape(Circle())
-        // Tapping the ring while idle opens the duration editor.
-        .onTapGesture {
-            if state == .idle { isEditingDuration = true }
-        }
+        .frame(minHeight: 120)
     }
 
     @ViewBuilder
@@ -206,12 +226,12 @@ struct TimerView: View {
             Button {
                 isEditingDuration = true
             } label: {
-                Label("\(workMinutes) min · \(formatted(breakDuration)) break", systemImage: "pencil")
+                Label("\(workMinutes) min", systemImage: "pencil")
                     .font(.subheadline)
             }
             .buttonStyle(.bordered)
             .tint(.secondary)
-            .accessibilityLabel("Edit work time, currently \(workMinutes) minutes")
+            .accessibilityLabel("Edit work time, currently \(workMinutes) minutes, then a \(formatted(breakDuration)) break")
         case .running:
             if let endDate {
                 // Clock app shows when the timer will finish
@@ -226,9 +246,9 @@ struct TimerView: View {
         }
     }
 
-    private var controls: some View {
+    private func controls(buttonSize: CGFloat) -> some View {
         HStack {
-            circleButton("Cancel", foreground: .primary, background: .gray.opacity(0.3)) {
+            circleButton("Cancel", size: buttonSize, foreground: .primary, background: .gray.opacity(0.3)) {
                 cancel()
             }
             .disabled(state == .idle && phase == .work)
@@ -238,15 +258,15 @@ struct TimerView: View {
 
             switch state {
             case .idle:
-                circleButton("Start", foreground: .green, background: .green.opacity(0.25)) {
+                circleButton("Start", size: buttonSize, foreground: .green, background: .green.opacity(0.25)) {
                     beforeStart { start() }
                 }
             case .running:
-                circleButton("Pause", foreground: .orange, background: .orange.opacity(0.25)) {
+                circleButton("Pause", size: buttonSize, foreground: .orange, background: .orange.opacity(0.25)) {
                     pause()
                 }
             case .paused:
-                circleButton("Resume", foreground: .green, background: .green.opacity(0.25)) {
+                circleButton("Resume", size: buttonSize, foreground: .green, background: .green.opacity(0.25)) {
                     resume()
                 }
             }
@@ -254,12 +274,12 @@ struct TimerView: View {
         .padding(.horizontal)
     }
 
-    private func circleButton(_ title: String, foreground: Color, background: Color, action: @escaping () -> Void) -> some View {
+    private func circleButton(_ title: String, size: CGFloat = 80, foreground: Color, background: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.callout)
                 .foregroundStyle(foreground)
-                .frame(width: 80, height: 80)
+                .frame(width: size, height: size)
                 .background(Circle().fill(background))
                 // Double ring look from the Clock app
                 .overlay(Circle().stroke(background, lineWidth: 2).padding(-4))
@@ -518,7 +538,8 @@ private struct ConfettiLayer: View {
 /// focused, or a joyful "take a breather" panel with confetti on break.
 private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     let ring: Ring
-    let controls: Controls
+    /// Builds the Cancel/Start row for a given button size.
+    let controls: (CGFloat) -> Controls
     let studyGoal: String
     let studiedTime: TimeInterval
     let canEnd: Bool
@@ -528,6 +549,9 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
 
     var body: some View {
         GeometryReader { geo in
+            // A small phone gets smaller buttons, a bigger clock area and a
+            // shorter quote panel, so nothing is squeezed out.
+            let compact = geo.size.height < 700
             ZStack {
                 if isBreak {
                     LinearGradient(
@@ -564,10 +588,10 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
                             .padding(.horizontal, 28)
                             .frame(maxHeight: .infinity)
 
-                        controls
+                        controls(compact ? 64 : 80)
                             .padding(.bottom, 4)
                     }
-                    .frame(height: geo.size.height / 2)
+                    .frame(height: geo.size.height * (compact ? 0.62 : 0.5))
 
                     Divider().overlay(.white.opacity(0.08))
 
@@ -576,7 +600,7 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
                     MotivationalGoalsPanel(studyGoal:
                                             
                                             studyGoal, isBreak: isBreak)
-                        .frame(height: geo.size.height / 2)
+                        .frame(maxHeight: .infinity)
                         .frame(maxWidth: .infinity)
                 }
                 
@@ -641,6 +665,8 @@ private struct MotivationalGoalsPanel: View {
 
             Text(currentText)
                 .font(.title3.weight(.semibold))
+                .lineLimit(4)
+                .minimumScaleFactor(0.7)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(isBreak ? Color(red: 0.75, green: 1.0, blue: 0.82) : (showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.white.opacity(0.85)))
                 .padding(.horizontal, 28)

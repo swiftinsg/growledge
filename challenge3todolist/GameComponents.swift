@@ -39,7 +39,15 @@ extension View {
         buttonStyle(BouncyButtonStyle(haptic: haptic))
     }
 }
-// The look every button shares: the same background image as Study, with a moody tint.
+/// The plain fill every button shares: one solid colour (the current
+/// season's accent), no texture and no gradient.
+struct ButtonBackground: View {
+    var body: some View {
+        Theme.accent
+    }
+}
+
+// The look every button shares: dark text on a solid accent colour.
 struct ButtonLook: View {
     var title: String? = nil
     var icon: String? = nil
@@ -53,19 +61,10 @@ struct ButtonLook: View {
         }
         .font(.headline)
         .fontWeight(.semibold)
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.6), radius: 2)
+        .foregroundStyle(Theme.buttonText)
         .frame(width: width, height: height)
-        .background {
-            ZStack {
-                Image(Theme.buttonImage)
-                    .resizable()
-                    .scaledToFill()
-                Theme.backdropTop.opacity(0.35)
-            }
-        }
+        .background { ButtonBackground() }
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(.white.opacity(0.35), lineWidth: 1.5))
     }
 }
 
@@ -701,17 +700,16 @@ struct HubButton: View {
             SoundPlayer.select()
             showingHub = true
         } label: {
-            VStack(spacing: 0) {
+            HStack(spacing: 6) {
                 Image(systemName: "scroll.fill")
-                    .font(.title2)
                     .foregroundStyle(claimableCount > 0 ? Theme.gold : Theme.text)
                 Text("Hub")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Theme.text)
             }
-            .frame(width: 60, height: 54)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.5), lineWidth: 1.5))
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
             .overlay(alignment: .topTrailing) {
                 if claimableCount > 0 {
                     Text("\(claimableCount)")

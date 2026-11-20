@@ -53,9 +53,6 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.5), value: hasCompletedOnboarding)
         // The whole app uses the moody garden look, which suits dark mode
         .preferredColorScheme(.dark)
-        // All text throughout the app (every screen, every .font(...) that
-        // doesn't pick its own design) renders in a serif typeface.
-        .fontDesign(.serif)
         // Plants keep growing while the app is in the background or closed:
         // catch up when we come back, and save when we leave.
         .onChange(of: scenePhase) { _, phase in
@@ -106,13 +103,6 @@ struct ContentView: View {
                 .tabItem {
                     Label("To-Do List", systemImage: "checklist")
                 }
-
-            NavigationStack {
-                RelaxView()
-            }
-            .tabItem {
-                Label("Relax", systemImage: "wind")
-            }
         }
     }
 
@@ -156,32 +146,13 @@ struct ContentView: View {
 
                 // Home HUD: mission, progress bar, streak, and the Study link
                 VStack(spacing: 18) {
-                    if !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        MissionBanner(goal: studyGoal)
-                            .fadeIn(order: 0)
-                    }
-
-                    HStack(alignment: .top, spacing: 16) {
-                        progressBar
-                            .opacity(showBar ? 1 : 0)
-                            .scaleEffect(showBar ? 1 : 0.8)
-                            .blur(radius: showBar ? 0 : 10)
-                            .fadeIn(order: 1)
-
-                        streakBadge
-                            .opacity(showStreak ? 1 : 0)
-                            .scaleEffect(showStreak ? 1 : 0.5)
-                            .blur(radius: showStreak ? 0 : 10)
-                            .fadeIn(order: 2)
-
-                        // Today's quests, the Mutation Dex and Achievements —
-                        // all behind this one button instead of three.
-                        HubButton(showingHub: $showingHub)
-                            .opacity(showStreak ? 1 : 0)
-                            .scaleEffect(showStreak ? 1 : 0.5)
-                            .blur(radius: showStreak ? 0 : 10)
-                            .fadeIn(order: 2)
-                    }
+                    // One tidy card: goal and streak on top, the weekly bar,
+                    // then hours studied and the Hub button underneath.
+                    homeCard
+                        .opacity(showBar ? 1 : 0)
+                        .scaleEffect(showBar ? 1 : 0.9)
+                        .blur(radius: showBar ? 0 : 10)
+                        .fadeIn(order: 1)
 
                     Spacer()
 
@@ -191,16 +162,11 @@ struct ContentView: View {
                     } label: {
                         Text("Study")
                             .font(.title2.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 200, height: 80)
-                            .background {
-                                Image("Image 1")
-                                    .resizable()
-                                    .scaledToFill()
-                            }
+                            .foregroundStyle(Theme.buttonText)
+                            .frame(width: 200, height: 72)
+                            .background { ButtonBackground() }
                             .clipShape(RoundedRectangle(cornerRadius: 20))
-                            .overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.4), lineWidth: 1.5))
-                            .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
+                            .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
                     }
                     .bouncy()
                     .opacity(showButton ? 1 : 0)
@@ -227,58 +193,69 @@ struct ContentView: View {
         }
     }
 
-    /// Shows how much of this week's study goal is done:
-    /// hours studied this week out of the hours in the goal.
-    private var progressBar: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private var trimmedGoal: String {
+        studyGoal.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The Home card: goal + streak, the weekly bar, hours studied + Hub.
+    private var homeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                if !trimmedGoal.isEmpty {
+                    Label(trimmedGoal, systemImage: "flag.checkered")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 8)
+                streakChip
+            }
+
+            // Weekly progress
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.14))
                     Capsule()
-                        .fill(Color.white.opacity(0.15))
-
-                    Capsule()
-                        .fill(LinearGradient(colors: [.green, .mint], startPoint: .leading, endPoint: .trailing))
+                        .fill(Theme.good)
                         // a small sliver shows as soon as any time is studied
-                        .frame(width: progress > 0 ? max(geo.size.width * progress, 14) : 0)
-
-                    Text("\(Int(progressRaw * 100))%")
-                        .font(.subheadline)
-                        .bold()
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.5), radius: 2)
-                        .frame(maxWidth: .infinity)
+                        .frame(width: progress > 0 ? max(geo.size.width * progress, 12) : 0)
                 }
             }
-            .frame(height: 34)
-            .background(.ultraThinMaterial, in: Capsule())
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 2))
+            .frame(height: 12)
             .animation(.easeOut(duration: 0.8), value: progress)
 
-            // e.g. "1h 30m of 10h this week"
-            Text("\(hoursText(studiedSeconds)) of \(goalTime.formatted(.number.precision(.fractionLength(0...1))))h this week")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.9))
-                .shadow(color: .black.opacity(0.5), radius: 2)
+            HStack {
+                // e.g. "1h 30m of 10h this week · 15%"
+                Text("\(hoursText(studiedSeconds)) of \(goalTime.formatted(.number.precision(.fractionLength(0...1))))h this week · \(Int(progressRaw * 100))%")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.subtext)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 8)
+                // Today's quests, the Mutation Dex and Achievements
+                HubButton(showingHub: $showingHub)
+            }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Weekly progress \(Int(progressRaw * 100)) percent, \(hoursText(studiedSeconds)) studied")
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.panelBorder, lineWidth: 1))
+        .accessibilityElement(children: .contain)
     }
 
     /// Days studied in a row (see StudyLogStore.currentStreak).
-    private var streakBadge: some View {
+    private var streakChip: some View {
         let streak = log.currentStreak()
-        return VStack(spacing: 0) {
-            Text(" \(Image(systemName: "flame.fill")) \(streak)")
-                .bold()
-                .foregroundStyle(streak > 0 ? .orange : .gray)
-                .font(.title2)
-                .shadow(color: streak > 0 ? .orange.opacity(0.6) : .clear, radius: 10)
+        return HStack(spacing: 4) {
+            Image(systemName: "flame.fill")
+            Text("\(streak) \(streak == 1 ? "day" : "days")")
                 .contentTransition(.numericText())
-            Text("day streak")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.85))
         }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(streak > 0 ? Color.orange : Theme.subtext)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(streak > 0 ? Color.orange.opacity(0.16) : Color.white.opacity(0.08)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(streak) day study streak")
     }
@@ -311,54 +288,6 @@ struct ContentView: View {
         withAnimation(.easeOut(duration: 0.4).delay(0.4)) {
             showButton = true
         }
-    }
-}
-
-/// The user's answer to "What do you hope to achieve from studying?", shown
-/// as a quest-style objective card that matches the rest of the game's UI
-/// (same texture as every button) instead of a generic glowing banner.
-struct MissionBanner: View {
-    let goal: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Theme.good.opacity(0.9))
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 36, height: 36)
-            .overlay(Circle().stroke(.white.opacity(0.4), lineWidth: 1.5))
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("YOUR GOAL")
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(Theme.subtext)
-                Text(goal)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.text)
-                    .shadow(color: .black.opacity(0.5), radius: 2)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity)
-        .background {
-            ZStack {
-                Image(Theme.buttonImage)
-                    .resizable()
-                    .scaledToFill()
-                Theme.backdropTop.opacity(0.5)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).stroke(.white.opacity(0.35), lineWidth: 1.5))
-        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
-        .accessibilityElement(children: .combine)
     }
 }
 

@@ -34,9 +34,9 @@ struct InventoryBar: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
-                    .foregroundStyle(.white)
-                    .frame(width: 64, height: 40)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.accent.opacity(0.85)))
+                    .foregroundStyle(Theme.buttonText)
+                    .frame(width: 68, height: 48)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Theme.accent))
                 }
                 .bouncy(haptic: false)
             }

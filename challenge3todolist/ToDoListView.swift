@@ -13,7 +13,7 @@ struct ToDoListView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("To-Do List")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(.system(.title2, weight: .bold))
                 Spacer()
                 Text("+\(CoinReward.bonusPerTask.formatted()) \(Theme.coin) per task")
                     .font(.caption.weight(.semibold))
@@ -104,7 +104,7 @@ struct GroupedTaskList: View {
                 } header: {
                     HStack {
                         Text("Completed")
-                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button("Clear") {
@@ -180,7 +180,7 @@ struct SubjectHeader: View {
                 .fill(subject.color.color)
                 .frame(width: 10, height: 10)
             Text(subject.name.uppercased())
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, weight: .heavy))
                 .tracking(1.5)
                 .foregroundStyle(subject.color.color)
             Spacer()
@@ -235,7 +235,7 @@ struct TaskRow: View {
             // The reward that pops up as the task disappears
             if fading && !task.rewarded {
                 Text("+\(CoinReward.bonusPerTask.formatted()) \(Theme.coin)")
-                    .font(.system(.headline, design: .rounded, weight: .heavy))
+                    .font(.system(.headline, weight: .heavy))
                     .foregroundStyle(Theme.gold)
                     .shadow(color: Theme.gold.opacity(0.7), radius: 8)
                     .offset(y: floatUp ? -26 : 0)
@@ -270,7 +270,7 @@ struct TaskRow: View {
 
                 // Title
                 Text(task.title)
-                    .font(.system(.headline, design: .rounded))
+                    .font(.system(.headline))
                     .strikethrough(task.isCompleted)
                     .foregroundStyle(task.isCompleted ? .secondary : .primary)
 
