@@ -40,9 +40,12 @@ struct GardenBackground: View {
     @ObservedObject private var store = GameStore.shared
 
     var body: some View {
-        ZStack {
-            GardenPlot(offset: .zero)
-            GardenTilesLayer(store: store)
+        GeometryReader { geo in
+            let offset = Theme.centeredGardenOffset(in: geo.size)
+            ZStack {
+                GardenPlot(offset: offset)
+                GardenTilesLayer(store: store, offset: offset)
+            }
         }
         .ignoresSafeArea()
         // Catch the garden up the moment the Home tab appears, so it never
@@ -58,9 +61,11 @@ struct GardenBackground: View {
 /// The same garden as the Home tab, used behind the other tabs.
 struct AppBackground: View {
     var body: some View {
-        GardenPlot(offset: .zero)
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+        GeometryReader { geo in
+            GardenPlot(offset: Theme.centeredGardenOffset(in: geo.size))
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 

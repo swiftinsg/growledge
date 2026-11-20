@@ -17,7 +17,7 @@ struct BulkActionsTests {
     }
 
     private func cells(_ n: Int) -> [(col: Int, row: Int)] {
-        (0..<n).map { (col: $0, row: 0) }
+        (0..<n).map { (col: $0 % Theme.gardenCols, row: $0 / Theme.gardenCols) }
     }
 
     @Test func plantAllFillsEmptySpotsAndUsesUpSeeds() {

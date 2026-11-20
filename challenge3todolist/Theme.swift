@@ -34,8 +34,8 @@ enum Theme {
     static let cornerRadius: CGFloat = 16
     static let tileSize: CGFloat = 160
     // The garden is a small fixed grid, so there are only a few big plots.
-    static let gardenCols = 3
-    static let gardenRows = 3
+    static let gardenCols = 2
+    static let gardenRows = 9
 
     static func isInGarden(col: Int, row: Int) -> Bool {
         (0..<gardenCols).contains(col) && (0..<gardenRows).contains(row)

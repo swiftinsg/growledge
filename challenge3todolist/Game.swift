@@ -25,6 +25,7 @@ struct Game: View {
     @State private var plotOffset = CGSize.zero
     @State private var savedOffset = CGSize.zero
     @State private var holding = false
+    @State private var hasCentered = false
     @State private var toast: String?
     @State private var dragging: DragInfo?
     @State private var gardenFrame: CGRect = .zero
@@ -48,7 +49,7 @@ struct Game: View {
                 // filled, not just outlined, so it's unmistakable while dragging.
                 if let d = dragging, gardenFrame != .zero {
                     let spot = tileAt(d.location)
-                    let willFit = !isOccupied(spot)
+                    let willFit = Theme.isInGarden(col: spot.col, row: spot.row) && !isOccupied(spot)
                     RoundedRectangle(cornerRadius: 12)
                         .fill((willFit ? Theme.good : Theme.bad).opacity(0.28))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(willFit ? Theme.good : Theme.bad, lineWidth: 3))
@@ -62,6 +63,13 @@ struct Game: View {
             }
             .ignoresSafeArea()
             .readFrame($gardenFrame)
+            .onChange(of: gardenFrame.size) { _, size in
+                // Start (and stay) with the whole garden centred on screen.
+                guard size != .zero, !hasCentered else { return }
+                hasCentered = true
+                plotOffset = Theme.centeredGardenOffset(in: size)
+                savedOffset = plotOffset
+            }
             .simultaneousGesture(panGesture)
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -208,14 +216,25 @@ struct Game: View {
     var panGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                plotOffset = CGSize(
+                plotOffset = clamped(CGSize(
                     width: savedOffset.width + value.translation.width,
                     height: savedOffset.height + value.translation.height
-                )
+                ))
             }
             .onEnded { _ in
                 savedOffset = plotOffset
             }
+    }
+
+    /// Keeps the small garden from being dragged off the screen.
+    func clamped(_ offset: CGSize) -> CGSize {
+        let centre = Theme.centeredGardenOffset(in: gardenFrame.size)
+        let slackX = max(abs(centre.width), 0) + 40
+        let slackY = max(abs(centre.height), 0) + 40
+        return CGSize(
+            width: min(max(offset.width, centre.width - slackX), centre.width + slackX),
+            height: min(max(offset.height, centre.height - slackY), centre.height + slackY)
+        )
     }
 
     // Which tile is under a point on the screen
@@ -327,8 +346,8 @@ struct Game: View {
     // Slide the garden back to the starting spot
     func relocate() {
         withAnimation(.easeInOut(duration: 0.5)) {
-            plotOffset = .zero
-            savedOffset = .zero
+            plotOffset = Theme.centeredGardenOffset(in: gardenFrame.size)
+            savedOffset = plotOffset
         }
     }
 }
