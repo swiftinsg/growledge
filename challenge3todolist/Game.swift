@@ -160,7 +160,7 @@ struct Game: View {
 
         // Inventory bar (right side)
         .overlay(alignment: .trailing) {
-            InventoryBar(dragging: $dragging) { id, point in
+            InventoryBar(dragging: $dragging, onPlantAll: { plantAll() }) { id, point in
                 plant(id, atGlobal: point)
             }
             .padding(.trailing, 6)
@@ -170,25 +170,6 @@ struct Game: View {
 
         // Harvest: press and HOLD (bottom left)
         .overlay(alignment: .bottomLeading) {
-            VStack(alignment: .leading, spacing: 12) {
-                Button {
-                    plantAll()
-                } label: {
-                    ButtonLook(title: "Plant All", icon: "leaf.fill", width: 220, height: 46)
-                        .overlay(alignment: .topTrailing) {
-                            if !store.seedsInBag.isEmpty {
-                                Text("\(store.seedsInBag.reduce(0) { $0 + store.count($1) })")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.white)
-                                    .padding(7)
-                                    .background(Circle().fill(Theme.accent))
-                                    .offset(x: 8, y: -8)
-                            }
-                        }
-                }
-                .bouncy(haptic: false)
-
             ButtonLook(title: "Hold to Harvest All", icon: "hand.tap.fill", width: 220, height: 56)
                 .overlay(alignment: .topTrailing) {
                     if store.readyCount > 0 {
@@ -208,8 +189,7 @@ struct Game: View {
                 }, onPressingChanged: { pressing in
                     holding = pressing
                 })
-            }
-            .padding()
+                .padding()
         }
 
         // Buy + Sell (bottom right, stacked). Plain Buttons that push the

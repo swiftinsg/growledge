@@ -11,14 +11,35 @@ import SwiftUI
 struct InventoryBar: View {
     @ObservedObject private var store = GameStore.shared
     @Binding var dragging: DragInfo?
+    var onPlantAll: () -> Void = {}
     var onDrop: (String, CGPoint) -> Void
+
+    /// "Plant All" only shows up once there are more seeds than this, because
+    /// with a few seeds dragging them is just as quick.
+    static let plantAllMinimumSeeds = 10
 
     var body: some View {
         let items = store.sortedInventory
+        let seedCount = store.seedsInBag.reduce(0) { $0 + store.count($1) }
         VStack(spacing: 4) {
             Image(systemName: "bag.fill")
                 .font(.title3)
                 .foregroundStyle(Theme.accent)
+            if seedCount > Self.plantAllMinimumSeeds {
+                Button(action: onPlantAll) {
+                    VStack(spacing: 1) {
+                        Image(systemName: "leaf.fill")
+                        Text("Plant All")
+                            .font(.system(size: 10, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 40)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.accent.opacity(0.85)))
+                }
+                .bouncy(haptic: false)
+            }
             if items.isEmpty {
                 Text("Empty")
                     .font(.caption)
