@@ -9,7 +9,7 @@ import SwiftUI
 
 /// The root of the app. First-time users see the two questions
 /// (FirstTimerView + Q2View); after that they get the tabs.
-struct ContentView: View {
+struct HomeScreen: View {
     // Weekly goal in hours (set by the second question). Used by the progress bar.
     @AppStorage("hisgoal") private var goalTime = 100.0
     // The answer to "What do you hope to achieve from studying?" (first question)
@@ -30,6 +30,11 @@ struct ContentView: View {
     /// True while the garden is open on top of Home (opened by tapping the background).
     @State private var gardenOpen = false
     @State private var showingHub = false
+
+    // Card sizes scale with Dynamic Type instead of being fixed numbers, and are
+    // kept small so the card covers as little of the garden as possible.
+    @ScaledMetric(relativeTo: .subheadline) private var cardPadding = 12.0
+    @ScaledMetric(relativeTo: .subheadline) private var barHeight = 8.0
 
     var body: some View {
         Group {
@@ -192,7 +197,7 @@ struct ContentView: View {
 
     /// The Home card: goal + streak, the weekly bar, hours studied + Hub.
     private var homeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 if !trimmedGoal.isEmpty {
                     Label(trimmedGoal, systemImage: "flag.checkered")
@@ -212,10 +217,10 @@ struct ContentView: View {
                     Capsule()
                         .fill(Theme.good)
                         // a small sliver shows as soon as any time is studied
-                        .frame(width: progress > 0 ? max(geo.size.width * progress, 12) : 0)
+                        .frame(width: progress > 0 ? max(geo.size.width * progress, barHeight) : 0)
                 }
             }
-            .frame(height: 12)
+            .frame(height: barHeight)
             .animation(.easeOut(duration: 0.8), value: progress)
 
             HStack {
@@ -230,9 +235,9 @@ struct ContentView: View {
                 HubButton(showingHub: $showingHub)
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.panelBorder, lineWidth: 1))
+        .padding(cardPadding)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cardPadding * 1.4, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: cardPadding * 1.4, style: .continuous).stroke(Theme.panelBorder, lineWidth: 1))
         .accessibilityElement(children: .contain)
     }
 
@@ -266,5 +271,5 @@ struct ContentView: View {
 
 
 #Preview {
-    ContentView()
+    HomeScreen()
 }

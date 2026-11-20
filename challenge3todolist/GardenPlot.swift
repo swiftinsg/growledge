@@ -37,12 +37,13 @@ struct GardenPlot: View, Animatable {
             Canvas { context, size in
                 // One continuous ground colour (no checkerboard) with soft
                 // mottled texture, so it reads as grass/soil, not a grid.
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.grass))
+                // Outside the garden is just dark ground; only the plots are grass.
+                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.soilDark))
 
-                let firstCol = Int(floor(-offset.width / tileSize)) - 1
-                let lastCol = Int(floor((size.width - offset.width) / tileSize)) + 1
-                let firstRow = Int(floor(-offset.height / tileSize)) - 1
-                let lastRow = Int(floor((size.height - offset.height) / tileSize)) + 1
+                let firstCol = max(0, Int(floor(-offset.width / tileSize)) - 1)
+                let lastCol = min(Theme.gardenCols - 1, Int(floor((size.width - offset.width) / tileSize)) + 1)
+                let firstRow = max(0, Int(floor(-offset.height / tileSize)) - 1)
+                let lastRow = min(Theme.gardenRows - 1, Int(floor((size.height - offset.height) / tileSize)) + 1)
                 guard firstCol <= lastCol, firstRow <= lastRow else { return }
 
                 for col in firstCol...lastCol {
@@ -53,6 +54,8 @@ struct GardenPlot: View, Animatable {
                             width: tileSize,
                             height: tileSize
                         )
+
+                        context.fill(Path(rect), with: .color(Theme.grass))
 
                         // Gentle, irregular shading per tile instead of a strict
                         // light/dark alternation — reads as natural ground.

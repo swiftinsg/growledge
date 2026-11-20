@@ -32,7 +32,20 @@ enum Theme {
     static let coin = "✦"
 
     static let cornerRadius: CGFloat = 16
-    static let tileSize: CGFloat = 80
+    static let tileSize: CGFloat = 160
+    // The garden is a small fixed grid, so there are only a few big plots.
+    static let gardenCols = 3
+    static let gardenRows = 3
+
+    static func isInGarden(col: Int, row: Int) -> Bool {
+        (0..<gardenCols).contains(col) && (0..<gardenRows).contains(row)
+    }
+
+    /// The offset that puts the whole garden in the middle of an area.
+    static func centeredGardenOffset(in size: CGSize) -> CGSize {
+        CGSize(width: (size.width - CGFloat(gardenCols) * tileSize) / 2,
+               height: (size.height - CGFloat(gardenRows) * tileSize) / 2)
+    }
     static let tickSeconds = 0.25           // how often plants grow
     static let sellRate = 0.7               // selling gives 50% of the price
     static let startingPoints = 100         // only used the very first time

@@ -30,7 +30,6 @@ struct Game: View {
     @State private var gardenFrame: CGRect = .zero
     @State private var showingBuy = false
     @State private var showingSell = false
-    @State private var showTornado = false
     @AppStorage("hasPlantedOnce") private var hasPlantedOnce = false
 
     var body: some View {
@@ -77,32 +76,8 @@ struct Game: View {
             // Leaving the game back to Home should leave things quiet again.
             MusicPlayer.shared.fadeOutAndStop()
         }
-        .onChange(of: store.disasterEvent) { _, event in
-            guard let event else { return }
-            Haptics.warning()
-            SoundPlayer.alarm()
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) { showTornado = true }
-            showToast(event)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                withAnimation { showTornado = false }
-                store.disasterEvent = nil
-            }
-        }
+        
 
-        // The tornado itself, spinning in briefly when it strikes.
-        .overlay {
-            if showTornado {
-                Image("Tornado")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .shadow(radius: 12)
-                    .rotationEffect(.degrees(showTornado ? 360 : 0))
-                    .animation(.linear(duration: 1.6).repeatForever(autoreverses: false), value: showTornado)
-                    .transition(.scale.combined(with: .opacity))
-                    .allowsHitTesting(false)
-            }
-        }
 
         // One-time nudge until the player plants their first seed.
         .overlay(alignment: .bottom) {

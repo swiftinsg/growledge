@@ -539,7 +539,7 @@ final class GameStore: ObservableObject {
 
     // ---- planting ----
     func place(_ id: String, col: Int, row: Int) -> Bool {
-        guard count(id) > 0 else { return false }
+        guard count(id) > 0, Theme.isInGarden(col: col, row: row) else { return false }
         let key = tileKey(col, row)
         if let t = tiles[key], t.seed != nil || t.sprinkler != nil { return false }
         let info = ItemInfo(id: id)

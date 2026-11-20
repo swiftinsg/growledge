@@ -64,7 +64,11 @@ struct InventoryBar: View {
             }
         }
         .padding(.vertical, 8)
-        .frame(width: 80, height: 400)
+        // Fills whatever room the garden gives it (the overlay's padding keeps it
+        // clear of the points pill and harvest button) instead of a fixed height,
+        // so it shrinks on small phones.
+        .frame(width: 80)
+        .frame(maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.card.opacity(0.92)))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.panelBorder, lineWidth: 1))
     }
