@@ -35,7 +35,7 @@ struct GardenTilesLayer: View {
     }
 }
 
-/// The garden preview shown behind the Home tab (the real garden is its own tab).
+/// The garden shown behind the Home tab. Tapping it opens the full garden game.
 struct GardenBackground: View {
     @ObservedObject private var store = GameStore.shared
 
@@ -48,7 +48,7 @@ struct GardenBackground: View {
         // Catch the garden up the moment the Home tab appears, so it never
         // looks frozen after time spent on another tab.
         // NOTE: deliberately no music here — Home is just a preview of the
-        // garden. Music only plays on the Garden tab (see Game.swift's onAppear).
+        // garden. Music only starts once the garden is opened (see Game.swift's onAppear).
         .onAppear {
             store.advance()
         }

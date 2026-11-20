@@ -27,6 +27,8 @@ struct ContentView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// True while the garden is open on top of Home (opened by tapping the background).
+    @State private var gardenOpen = false
     @State private var showingHub = false
 
     var body: some View {
@@ -90,12 +92,11 @@ struct ContentView: View {
                     Label("Home", systemImage: "house.fill")
                 }
 
-            // The garden has its own tab; Home only shows the plants behind it.
             NavigationStack {
-                Game()
+                StudyView()
             }
             .tabItem {
-                Label("Garden", systemImage: "leaf.fill")
+                Label("Study", systemImage: "book.fill")
             }
 
             HistoryView()
@@ -139,38 +140,49 @@ struct ContentView: View {
     private var homeTab: some View {
         NavigationStack {
             ZStack {
-                // The plants you have growing, shown behind the Home card
+                // Your plants, growing. Tap anywhere on the garden to open it.
                 GardenBackground()
+                    .onTapGesture {
+                        if !gardenOpen {
+                            Haptics.tap()
+                            openGarden()
+                        }
+                    }
 
                 VStack(spacing: 18) {
                     // One tidy card: goal and streak on top, the weekly bar,
                     // then hours studied and the Hub button underneath.
                     homeCard
+                        .opacity(gardenOpen ? 0 : 1)
+                        .scaleEffect(gardenOpen ? 0.9 : 1)
+                        .blur(radius: gardenOpen ? 10 : 0)
                         .fadeIn(order: 1)
 
                     Spacer()
 
-                    // The Study button is a NavigationLink to the study screen
-                    NavigationLink {
-                        StudyView()
-                    } label: {
-                        Text("Study")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(Theme.buttonText)
-                            .frame(width: 200, height: 72)
-                            .background { ButtonBackground() }
-                            .clipShape(RoundedRectangle(cornerRadius: 20))
-                            .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
-                    }
-                    .bouncy()
-                    .fadeIn(order: 3)
-
-                    Spacer()
+                    Label("Tap your garden to open it", systemImage: "hand.tap.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.text)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .opacity(gardenOpen ? 0 : 1)
+                        .allowsHitTesting(false)
+                        .fadeIn(order: 3)
                 }
                 .padding()
+                .allowsHitTesting(!gardenOpen)
+
+                // The garden sits on top of everything once opened
+                if gardenOpen {
+                    Game(onExit: closeGarden)
+                        .transition(.opacity)
+                }
             }
             .tabFadeRoot()
             .toolbar(.hidden, for: .navigationBar)
+            // Hide the tab bar while playing the garden
+            .toolbar(gardenOpen ? .hidden : .visible, for: .tabBar)
         }
     }
 
@@ -240,7 +252,18 @@ struct ContentView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(streak) day study streak")
     }
+
+    // MARK: - Opening and closing the garden
+
+    private func openGarden() {
+        withAnimation(.easeInOut(duration: 0.4)) { gardenOpen = true }
+    }
+
+    private func closeGarden() {
+        withAnimation(.easeOut(duration: 0.4)) { gardenOpen = false }
+    }
 }
+
 
 #Preview {
     ContentView()
