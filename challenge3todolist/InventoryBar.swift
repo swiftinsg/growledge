@@ -22,7 +22,7 @@ struct InventoryBar: View {
         let items = store.sortedInventory
         let seedCount = store.seedsInBag.reduce(0) { $0 + store.count($1) }
         VStack(spacing: 4) {
-            Image(systemName: "bag.fill")
+            Image(systemName: "backpack.fill")
                 .font(.title3)
                 .foregroundStyle(Theme.accent)
             if seedCount > Self.plantAllMinimumSeeds {

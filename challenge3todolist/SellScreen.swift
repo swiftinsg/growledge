@@ -55,7 +55,7 @@ struct SellScreen: View {
                     .multilineTextAlignment(.center)
 
                 let allCrops = store.allCropsSaleSummary()
-                GameButton(title: "Sell All Crops", icon: "bag.fill", width: 200, height: 44) {
+                GameButton(title: "Sell All Crops", icon: "backpack.fill", width: 200, height: 44) {
                     confirmSellAll = true
                 }
                 .disabled(allCrops.count == 0)

@@ -12,6 +12,8 @@ struct BuyScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var type: ShopType = .seeds
     @State private var showAsk = true
+    /// "Bought Dewdrop Berry Seeds" — shown briefly at the bottom after each purchase.
+    @State private var receipt: String?
 
     var body: some View {
         ZStack {
@@ -49,7 +51,8 @@ struct BuyScreen: View {
                                         id: "seed:\(crop.name)",
                                         title: crop.name.capitalized + " Seeds",
                                         subtitle: "Limited time · Grows in \(timeText(crop.growSeconds))",
-                                        price: crop.price
+                                        price: crop.price,
+                                        onBought: showReceipt
                                     )
                                 }
                                 Divider().overlay(Theme.panelBorder).padding(.vertical, 4)
@@ -59,7 +62,8 @@ struct BuyScreen: View {
                                     id: "seed:\(crop.name)",
                                     title: crop.name.capitalized + " Seeds",
                                     subtitle: "Grows in \(timeText(crop.growSeconds))",
-                                    price: crop.price
+                                    price: crop.price,
+                                    onBought: showReceipt
                                 )
                             }
                         } else {
@@ -68,7 +72,8 @@ struct BuyScreen: View {
                                     id: "gear:\(sp.tier)",
                                     title: sp.name,
                                     subtitle: "Plants nearby grow x\(sp.speed.formatted()) faster",
-                                    price: sp.price
+                                    price: sp.price,
+                                    onBought: showReceipt
                                 )
                             }
                         }
@@ -80,6 +85,21 @@ struct BuyScreen: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        // A clear "you bought it" message at the bottom
+        .overlay(alignment: .bottom) {
+            if let receipt {
+                Label(receipt, systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.buttonText)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(Theme.good))
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
+                    .padding(.bottom, 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receipt)
         // Special shop music while you're browsing, then back to the garden's
         // own playlist the moment you leave.
         .onAppear {
@@ -88,6 +108,17 @@ struct BuyScreen: View {
         }
         .onDisappear {
             MusicPlayer.shared.playPlaylist(Music.gardenPlaylist)
+        }
+    }
+}
+
+extension BuyScreen {
+    /// Shows the receipt for a couple of seconds.
+    fileprivate func showReceipt(_ text: String) {
+        receipt = text
+        let shown = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            if receipt == shown { receipt = nil }
         }
     }
 }
@@ -129,8 +160,12 @@ struct ShopRow: View {
     let title: String
     let subtitle: String
     let price: Int
+    /// Called after a successful purchase with a short message ("Bought ...").
+    var onBought: (String) -> Void = { _ in }
     @ObservedObject private var store = GameStore.shared
     @ObservedObject private var admin = AdminMode.shared
+    /// True for a moment after buying, so the row visibly reacts.
+    @State private var justBought = false
 
     var body: some View {
         let stock = store.stockToday(id: id, price: price)
@@ -162,6 +197,9 @@ struct ShopRow: View {
                     .foregroundStyle(canBuy ? Theme.gold : Theme.bad)
                 HStack(spacing: 8) {
                     Text("You have: \(store.count(id))")
+                        .fontWeight(justBought ? .bold : .regular)
+                        .foregroundStyle(justBought ? Theme.good : Theme.subtext)
+                        .contentTransition(.numericText())
                     Text(stock > 0 ? "In stock: \(stock)" : "Out of stock — check back tomorrow")
                         .foregroundStyle(stock > 0 ? Theme.good : Theme.bad)
                 }
@@ -169,9 +207,17 @@ struct ShopRow: View {
                 .foregroundStyle(Theme.subtext)
             }
             Spacer()
-            GameButton(title: "Buy", width: 72, height: 44) {
+            GameButton(title: justBought ? nil : "Buy", icon: justBought ? "checkmark" : nil,
+                       width: 76, height: 44) {
+                let paid = store.effectivePrice(price)
                 if store.buy(id, price: price) {
                     SoundPlayer.coin()
+                    Haptics.success()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { justBought = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                        withAnimation { justBought = false }
+                    }
+                    onBought(paid == 0 ? "Bought \(title)" : "Bought \(title)  ·  \(Theme.coin) \(paid.formatted())")
                 } else {
                     Haptics.warning()
                     SoundPlayer.error()
@@ -182,6 +228,8 @@ struct ShopRow: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 18).fill(Theme.card.opacity(0.92)))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.panelBorder, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(justBought ? Theme.good : Theme.panelBorder,
+                                                          lineWidth: justBought ? 3 : 1))
+        .scaleEffect(justBought ? 1.02 : 1)
     }
 }

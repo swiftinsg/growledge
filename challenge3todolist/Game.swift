@@ -359,7 +359,8 @@ struct Game: View {
 }
 
 // What is drawn on a planted tile.
-// A growing crop shows: a progress bar, how long it has grown (12s / 30s) and how long is left.
+// A growing crop shows one progress bar and how long is left. (The plant
+// drawing grows too, but it is only a picture, not a second meter.)
 struct TileContent: View {
     let tile: Tile
     var speed: Double = 1
@@ -389,16 +390,10 @@ struct TileContent: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Theme.good)
                     } else {
-                        // how long it has grown for / total time
-                        Text("\(elapsedText(tile.progress)) / \(timeText(crop.growSeconds))")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
                         // how long is left (faster with a sprinkler)
                         Text(speed > 1 ? "\(timeText(timeLeft)) left  x\(speed.formatted())" : "\(timeText(timeLeft)) left")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(speed > 1 ? Theme.gold : Theme.subtext)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(speed > 1 ? Theme.gold : Theme.text)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                     }
