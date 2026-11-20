@@ -120,11 +120,20 @@ struct GroupedTaskList: View {
         .overlay {
             if groups.isEmpty && completed.isEmpty {
                 if let emptyDescription {
-                    ContentUnavailableView(
-                        emptyTitle,
-                        systemImage: "checklist",
-                        description: Text(emptyDescription)
-                    )
+                    ContentUnavailableView {
+                        Label(emptyTitle, systemImage: "checklist")
+                    } description: {
+                        Text(emptyDescription)
+                    } actions: {
+                        if managesSubjects {
+                            // One tap instead of adding subjects one by one
+                            Button("Add common subjects") {
+                                Haptics.success()
+                                withAnimation { store.addSubjects(Subject.starterSubjects) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
                 } else {
                     Text(emptyTitle)
                         .font(.subheadline)

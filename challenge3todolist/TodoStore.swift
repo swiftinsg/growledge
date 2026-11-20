@@ -46,14 +46,29 @@ struct Subject: Identifiable, Hashable, Codable {
     static let none = Subject(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                               name: "No Subject", color: .gray)
 
+    /// Common subjects offered as one-tap suggestions when adding a subject.
+    /// The first four are also what a brand-new install starts with. (No
+    /// language subjects, since everyone studies a different mother tongue.)
+    static let suggestions: [Subject] = [
+        Subject(name: "Math", color: .blue),
+        Subject(name: "English", color: .red),
+        Subject(name: "Science", color: .green),
+        Subject(name: "Humanities", color: .orange),
+        Subject(name: "Physics", color: .purple),
+        Subject(name: "Chemistry", color: .yellow),
+        Subject(name: "Biology", color: .pink),
+        Subject(name: "History", color: .orange),
+        Subject(name: "Geography", color: .green),
+        Subject(name: "Computing", color: .blue),
+        Subject(name: "Economics", color: .yellow),
+        Subject(name: "Literature", color: .red),
+        Subject(name: "Art", color: .pink),
+        Subject(name: "Music", color: .purple)
+    ]
+
     /// The subjects a new user starts with. They can be renamed or deleted
     /// like any other, and once deleted they don't come back.
-    static var starterSubjects: [Subject] {
-        [Subject(name: "Math", color: .blue),
-         Subject(name: "English", color: .red),
-         Subject(name: "Science", color: .green),
-         Subject(name: "Humanities", color: .orange)]
-    }
+    static var starterSubjects: [Subject] { Array(suggestions.prefix(4)) }
 }
 
 /// One to-do item.
@@ -132,6 +147,35 @@ final class TodoStore: ObservableObject {
         guard isLoaded else { return }
         defaults.set(try? JSONEncoder().encode(subjects), forKey: Self.subjectsKey)
         defaults.set(try? JSONEncoder().encode(reminders), forKey: Self.remindersKey)
+    }
+
+    /// True if a subject with this name already exists (ignoring case and spaces).
+    func hasSubject(named name: String) -> Bool {
+        let wanted = name.trimmingCharacters(in: .whitespaces).lowercased()
+        return subjects.contains { $0.name.trimmingCharacters(in: .whitespaces).lowercased() == wanted }
+    }
+
+    /// Adds a subject unless one with that name already exists. Returns whether it was added.
+    @discardableResult
+    func addSubject(_ subject: Subject) -> Bool {
+        let name = subject.name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !hasSubject(named: name) else { return false }
+        var added = subject
+        added.name = name
+        subjects.append(added)
+        return true
+    }
+
+    /// The suggested subjects that the user doesn't have yet.
+    var availableSuggestions: [Subject] {
+        Subject.suggestions.filter { !hasSubject(named: $0.name) }
+    }
+
+    /// Adds several subjects at once (skipping any that already exist).
+    /// Returns how many were added.
+    @discardableResult
+    func addSubjects(_ list: [Subject]) -> Int {
+        list.reduce(0) { $0 + (addSubject($1) ? 1 : 0) }
     }
 
     /// The user's subjects followed by the built-in "No Subject".

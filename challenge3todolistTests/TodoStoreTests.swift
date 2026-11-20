@@ -112,4 +112,39 @@ struct TodoStoreTests {
         #expect(next.subjects.map(\.name) == ["Art"])
         #expect(next.reminders.map(\.title) == ["Sketch"])
     }
+
+    // MARK: - Quick-adding subjects
+
+    @Test func suggestionsHaveUniqueNamesAndNoLanguages() {
+        let names = Subject.suggestions.map { $0.name.lowercased() }
+        #expect(Set(names).count == names.count)
+        for banned in ["chinese", "malay", "tamil", "mother tongue"] { #expect(!names.contains(banned)) }
+    }
+
+    @Test func addingASubjectSkipsDuplicatesIgnoringCaseAndSpaces() {
+        let store = TodoStore(defaults: makeDefaults())
+        #expect(!store.addSubject(Subject(name: "  math ", color: .red)))
+        #expect(!store.addSubject(Subject(name: "   ", color: .red)))
+        #expect(store.addSubject(Subject(name: " Art ", color: .pink)))
+        #expect(store.subjects.last?.name == "Art")
+    }
+
+    @Test func addedSuggestionsDisappearFromTheSuggestionList() {
+        let store = TodoStore(defaults: makeDefaults())
+        #expect(!store.availableSuggestions.contains { $0.name == "Math" })
+        #expect(store.availableSuggestions.contains { $0.name == "Physics" })
+
+        store.addSubject(Subject.suggestions.first { $0.name == "Physics" }!)
+        #expect(!store.availableSuggestions.contains { $0.name == "Physics" })
+    }
+
+    @Test func addAllAddsEverySuggestionOnceAndSavesThem() {
+        let defaults = makeDefaults()
+        let store = TodoStore(defaults: defaults)
+        let added = store.addSubjects(store.availableSuggestions)
+        #expect(added == Subject.suggestions.count - 4)
+        #expect(store.availableSuggestions.isEmpty)
+        #expect(store.addSubjects(Subject.suggestions) == 0)
+        #expect(TodoStore(defaults: defaults).subjects.count == Subject.suggestions.count)
+    }
 }

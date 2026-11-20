@@ -38,7 +38,7 @@ struct Todolist: View {
                     GroupedTaskList(
                         managesSubjects: true,
                         emptyTitle: "No subjects yet",
-                        emptyDescription: "Tap + to create a subject, then add tasks to it."
+                        emptyDescription: "Add the subjects you study, then add tasks to them."
                     )
                 }
 
@@ -49,14 +49,10 @@ struct Todolist: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.title.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.buttonText)
                         .frame(width: 60, height: 60)
-                        .background(
-                            LinearGradient(colors: [.blue, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: Circle()
-                        )
-                        .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1.5))
-                        .shadow(color: .blue.opacity(0.5), radius: 10, x: 0, y: 4)
+                        .background(Theme.accent, in: Circle())
+                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .bouncy(haptic: false)
                 .fadeIn(order: 2)
@@ -76,9 +72,7 @@ struct Todolist: View {
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .subject:
-                    AddSubjectView { newSubject in
-                        store.subjects.append(newSubject)
-                    }
+                    AddSubjectView()
                 case .task:
                     AddTaskView(subjects: store.allSubjects) { newReminder in
                         store.reminders.append(newReminder)
@@ -115,21 +109,58 @@ struct AddMenuView: View {
 }
 
 // MARK: - Add Subject Sheet View
+/// Tap a suggestion to add it straight away (as many as you like), or type
+/// your own name and pick a colour.
 struct AddSubjectView: View {
     @Environment(\.dismiss) private var dismiss
-    var onSave: (Subject) -> Void
+    @ObservedObject private var store = TodoStore.shared
 
     @State private var name = ""
     @State private var color: SubjectColor = .blue
 
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Details") {
-                    TextField("Subject name (e.g. Math)", text: $name)
+                // One tap each; they disappear from here once added.
+                if !store.availableSuggestions.isEmpty {
+                    Section {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+                            ForEach(store.availableSuggestions) { suggestion in
+                                Button {
+                                    Haptics.tap()
+                                    withAnimation(.snappy) { store.addSubject(suggestion) }
+                                } label: {
+                                    Label(suggestion.name, systemImage: "plus")
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                        .foregroundStyle(suggestion.color.color)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .background(suggestion.color.color.opacity(0.18), in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } header: {
+                        HStack {
+                            Text("Quick add")
+                            Spacer()
+                            Button("Add all") {
+                                Haptics.success()
+                                withAnimation(.snappy) { store.addSubjects(store.availableSuggestions) }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .textCase(nil)
+                        }
+                    }
                 }
 
-                Section("Colour") {
+                Section("Or make your own") {
+                    TextField("Subject name", text: $name)
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
                         ForEach(SubjectColor.choices) { option in
                             Circle()
@@ -146,24 +177,34 @@ struct AddSubjectView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                }
-            }
-            .navigationTitle("New Subject")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Add \(trimmedName.isEmpty ? "subject" : trimmedName)") {
+                        if store.addSubject(Subject(name: trimmedName, color: color)) {
+                            Haptics.success()
+                            name = ""
+                        } else {
+                            Haptics.warning()
+                        }
+                    }
+                    .disabled(trimmedName.isEmpty)
                 }
 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        onSave(Subject(name: name.trimmingCharacters(in: .whitespaces), color: color))
-                        dismiss()
+                if !store.subjects.isEmpty {
+                    Section("Your subjects") {
+                        Text(store.subjects.map(\.name).joined(separator: ", "))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .navigationTitle("Add Subjects")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }
+        .presentationDetents([.large])
     }
 }
 
