@@ -248,14 +248,6 @@ struct TimerView: View {
 
     private func controls(buttonSize: CGFloat) -> some View {
         HStack {
-            circleButton("Cancel", size: buttonSize, foreground: .primary, background: .gray.opacity(0.3)) {
-                cancel()
-            }
-            .disabled(state == .idle && phase == .work)
-            .opacity(state == .idle && phase == .work ? 0.5 : 1)
-
-            Spacer()
-
             switch state {
             case .idle:
                 circleButton("Start", size: buttonSize, foreground: .green, background: .green.opacity(0.25)) {
@@ -322,15 +314,6 @@ struct TimerView: View {
         if phase == .work { segmentStart = .now }
         MusicPlayer.shared.resume()
         runCountdown()
-    }
-
-    /// Stops the timer and resets the cycle back to a work session.
-    /// Time already studied in the current focus phase is kept.
-    private func cancel() {
-        logStudySegment()
-        bankCurrentStudyTime()
-        stopTicking()
-        phase = .work
     }
 
     /// Ends the whole session, reports the time studied, and resets everything.
@@ -538,7 +521,7 @@ private struct ConfettiLayer: View {
 /// focused, or a joyful "take a breather" panel with confetti on break.
 private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     let ring: Ring
-    /// Builds the Cancel/Start row for a given button size.
+    /// Builds the Start/Pause/Resume button for a given button size.
     let controls: (CGFloat) -> Controls
     let studyGoal: String
     let studiedTime: TimeInterval
