@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 /// A Pomodoro timer styled after the Timer in Apple's Clock app.
 /// The user picks a work length (saved between launches); the break is
@@ -36,10 +35,6 @@ struct TimerView: View {
     @State private var segmentStart: Date?
     /// Whether the timer is taking over the whole screen right now.
     @State private var isFullScreen = false
-
-    /// The user's own answer to "What do you hope to achieve from studying?",
-    /// shown (among other goals) while the timer is full screen.
-    @AppStorage("studyGoal") private var studyGoal = ""
 
     /// Unlocks the apps if this screen goes away while a focus phase is running.
     @StateObject private var lockSession = FocusLockSession()
@@ -126,7 +121,6 @@ struct TimerView: View {
             FullScreenTimerView(
                 ring: countdownRing,
                 controls: { controls(buttonSize: $0) },
-                studyGoal: studyGoal,
                 studiedTime: studiedTime,
                 canEnd: studiedTime > 0,
                 isBreak: isBreak,
@@ -517,13 +511,11 @@ private struct ConfettiLayer: View {
 }
 
 /// The timer taking over the whole screen: the same ring and controls as the
-/// docked view, plus a rotating panel underneath — study goals while
-/// focused, or a joyful "take a breather" panel with confetti on break.
+/// docked view, with the confetti background on break.
 private struct FullScreenTimerView<Ring: View, Controls: View>: View {
     let ring: Ring
     /// Builds the Start/Pause/Resume button for a given button size.
     let controls: (CGFloat) -> Controls
-    let studyGoal: String
     let studiedTime: TimeInterval
     let canEnd: Bool
     var isBreak: Bool = false
@@ -532,8 +524,7 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
 
     var body: some View {
         GeometryReader { geo in
-            // A small phone gets smaller buttons, a bigger clock area and a
-            // shorter quote panel, so nothing is squeezed out.
+            // A small phone gets smaller buttons, so nothing is squeezed out.
             let compact = geo.size.height < 700
             ZStack {
                 if isBreak {
@@ -574,17 +565,6 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
                         controls(compact ? 64 : 80)
                             .padding(.bottom, 4)
                     }
-                    .frame(height: geo.size.height * (compact ? 0.62 : 0.5))
-
-                    Divider().overlay(.white.opacity(0.08))
-
-                    // Bottom half: study goals while focused, or a joyful
-                    // "take a breather" panel with Verity Disstrack playing on break.
-                    MotivationalGoalsPanel(studyGoal:
-                                            
-                                            studyGoal, isBreak: isBreak)
-                        .frame(maxHeight: .infinity)
-                        .frame(maxWidth: .infinity)
                 }
                 
             }
@@ -598,71 +578,6 @@ private struct FullScreenTimerView<Ring: View, Controls: View>: View {
             }
         }
         .preferredColorScheme(.dark)
-    }
-}
-
-/// Cycles through encouraging study goals every few seconds while focused;
-/// every fourth turn it surfaces the user's own "what I hope to achieve"
-/// answer instead. On a break it switches to cheerful, no-pressure messages
-/// instead, since a break isn't the place for more studying prompts.
-private struct MotivationalGoalsPanel: View {
-    let studyGoal: String
-    var isBreak: Bool = false
-
-    private static let genericGoals: [String] = [
-        "Stay focused — future you is counting on this.",
-        "Small steps now, big results later.",
-        "Discipline beats motivation. Keep going.",
-        "One page, one problem, one step at a time.",
-        "You don't have to be perfect, just consistent.",
-        "This hour is an investment in yourself.",
-        "Progress, not perfection.",
-        "Deep work now, deserved rest later."
-    ]
-
-    private static let breakMessages: [String] = [
-        "🎉 Nice work! Stretch, breathe, and enjoy this.",
-        "☕️ Grab a drink, look away from the screen for a bit.",
-        "🙌 You earned this break — make it count.",
-        "💃 Dance it out for a second if you want to.",
-        "🌤️ Rest the eyes, rest the mind. Back soon!",
-        "🎶 Enjoy the tune — no studying allowed right now."
-    ]
-
-    @State private var index = 0
-
-    private var showsOwnGoal: Bool {
-        !isBreak && !studyGoal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && index % 4 == 3
-    }
-
-    private var currentText: String {
-        if isBreak { return Self.breakMessages[index % Self.breakMessages.count] }
-        return showsOwnGoal ? "Remember why: \(studyGoal)" : Self.genericGoals[index % Self.genericGoals.count]
-    }
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: isBreak ? "party.popper.fill" : (showsOwnGoal ? "flag.checkered" : "quote.opening"))
-                .font(.title2)
-                .foregroundStyle(isBreak ? Color(red: 0.55, green: 0.95, blue: 0.65) : (showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : .secondary))
-
-            Text(currentText)
-                .font(.title3.weight(.semibold))
-                .lineLimit(4)
-                .minimumScaleFactor(0.7)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(isBreak ? Color(red: 0.75, green: 1.0, blue: 0.82) : (showsOwnGoal ? Color(red: 0.98, green: 0.82, blue: 0.45) : Color.white.opacity(0.85)))
-                .padding(.horizontal, 28)
-        }
-        .id(index)
-        // A plain cross-fade — no sliding/flying in, just dissolves between quotes.
-        .transition(.opacity)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white.opacity(0.04))
-        .animation(.easeInOut(duration: 0.7), value: index)
-        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
-                index += 1
-            }
     }
 }
 
