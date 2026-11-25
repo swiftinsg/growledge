@@ -13,6 +13,8 @@ struct InventoryBar: View {
     @Binding var dragging: DragInfo?
     var onPlantAll: () -> Void = {}
     var onDrop: (String, CGPoint) -> Void
+    /// Tap the backpack to fold the bar away and see more of the garden.
+    @State private var collapsed = false
 
     /// "Plant All" only shows up once there are more seeds than this, because
     /// with a few seeds dragging them is just as quick.
@@ -22,9 +24,24 @@ struct InventoryBar: View {
         let items = store.sortedInventory
         let seedCount = store.seedsInBag.reduce(0) { $0 + store.count($1) }
         VStack(spacing: 4) {
-            Image(systemName: "backpack.fill")
-                .font(.title3)
-                .foregroundStyle(Theme.accent)
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { collapsed.toggle() }
+            } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: "backpack.fill")
+                        .font(.title3)
+                        .foregroundStyle(Theme.accent)
+                    Image(systemName: collapsed ? "chevron.down" : "chevron.up")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.subtext)
+                }
+                .frame(width: 68, height: 40)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(collapsed ? "Open inventory" : "Collapse inventory")
+            if collapsed {
+                EmptyView()
+            } else {
             if seedCount > Self.plantAllMinimumSeeds {
                 Button(action: onPlantAll) {
                     VStack(spacing: 1) {
@@ -62,13 +79,14 @@ struct InventoryBar: View {
                 }
                 .scrollDisabled(dragging != nil)
             }
+            }
         }
         .padding(.vertical, 8)
         // Fills whatever room the garden gives it (the overlay's padding keeps it
         // clear of the points pill and harvest button) instead of a fixed height,
         // so it shrinks on small phones.
         .frame(width: 80)
-        .frame(maxHeight: .infinity)
+        .frame(maxHeight: collapsed ? nil : .infinity)
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.card.opacity(0.92)))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.panelBorder, lineWidth: 1))
     }
