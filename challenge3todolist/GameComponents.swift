@@ -288,7 +288,7 @@ struct TutorialOverlay: View {
 
     private let pages: [TutorialPage] = [
         TutorialPage(icon: "leaf.fill", title: "Welcome to your Garden",
-                     text: "Tap your garden on the Home screen to open it, then press and hold a seed on the right edge and drag it onto an empty tile to plant it.",
+                     text: "Tap your garden on the Home screen to open it, then tap the backpack on the right, press and hold a seed and drag it onto an empty tile to plant it.",
                      tint: Theme.good),
         TutorialPage(icon: "hand.tap.fill", title: "Harvesting",
                      text: "Tap any crop once it's ready to harvest just that one — or hold the \"Hold to Harvest All\" button to collect everything at once.",

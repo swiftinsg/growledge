@@ -14,7 +14,7 @@ struct InventoryBar: View {
     var onPlantAll: () -> Void = {}
     var onDrop: (String, CGPoint) -> Void
     /// Tap the backpack to fold the bar away and see more of the garden.
-    @State private var collapsed = false
+    @State private var collapsed = true
 
     /// "Plant All" only shows up once there are more seeds than this, because
     /// with a few seeds dragging them is just as quick.

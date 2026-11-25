@@ -93,7 +93,7 @@ struct Game: View {
         // One-time nudge until the player plants their first seed.
         .overlay(alignment: .bottom) {
             if !hasPlantedOnce && dragging == nil {
-                Label("Press and drag a seed from the right onto the garden to plant it", systemImage: "hand.draw.fill")
+                Label("Tap the backpack on the right, then drag a seed onto the garden", systemImage: "hand.draw.fill")
                     .font(.footnote.weight(.semibold))
                     .multilineTextAlignment(.leading)
                     .foregroundStyle(.white)
