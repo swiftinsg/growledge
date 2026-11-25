@@ -36,9 +36,13 @@ final class AdminMode: ObservableObject {
     /// Switches admin mode on if the password is right.
     @discardableResult
     func unlock(password: String) -> Bool {
+        #if !DEBUG
+        return false   // admin mode does not exist in release builds
+        #else
         guard Self.isCorrect(password) else { return false }
         isActive = true
         return true
+        #endif
     }
 
     func lock() { isActive = false }

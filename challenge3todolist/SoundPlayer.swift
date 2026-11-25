@@ -147,45 +147,23 @@ class SoundPlayer {
 // MARK: - Background music (your own bundled tracks, looped)
 // =====================================================================
 
-/// Filenames for the music you added to the project. Make sure each file is
-/// dragged into Xcode with its Target Membership checkbox ticked, or the
-/// app will simply find nothing to play and stay silent for that track.
+/// Background music is switched off for release: the old tracks (Minecraft,
+/// Forsaken and meme songs) are copyrighted, and Apple rejects apps for that.
+/// To bring music back, add tracks you have the licence for to the project
+/// (Target Membership ticked), put their file names here and in the playlists.
 enum Music {
-    static let garden = "Garden Music.mp3"
-    static let moogCity = "Moog City.mp3"
-    static let ariaMath = "C418 - Aria Math (Minecraft Volume Beta).mp3"
-    static let sundowner = "SUNDOWNER - Brandon Works Map Theme Forsaken OST.mp3"
-    // Funny track — garden only, kept out of the study playlist on purpose.
-    static let verityDisstrack = "Verity Disstrack - Official Music Video.mp3"
-    static let hollowEvening = "A Hollow Evening Halloween Event Track (FORSAKEN).mp3"
-    static let infiniteAmethyst = "Infinite Amethyst.mp3"
-    static let nuclearOverture = "NUCLEAR OVERTURE.mp3"
+    static let hollowEvening = ""
+    static let verityDisstrack = ""
 
     /// Plays while the garden is on screen.
-    static let gardenPlaylist = [garden, sundowner, verityDisstrack, infiniteAmethyst, nuclearOverture]
-    /// Plays while a study session is running. No Verity Disstrack here —
-    /// it's a funny song, not one for focusing.
-    static let studyPlaylist = [moogCity, ariaMath, sundowner, infiniteAmethyst, nuclearOverture]
+    static let gardenPlaylist: [String] = []
+    /// Plays while a study session is running.
+    static let studyPlaylist: [String] = []
 
-    /// Tracks that should come up less often than the rest when a playlist
-    /// is shuffled — a nice surprise rather than something heard every loop.
-    /// (The "weathergirl" track is the Garden Music file itself — see the
-    /// duplicate-file note from before.)
-    static let rareTracks: Set<String> = [garden]
+    /// Tracks that should come up less often when a playlist is shuffled.
+    static let rareTracks: Set<String> = []
 
-    /// Every track in the app, with a friendly display name, for the Relax
-    /// tab's song library — so there's one list to pick any of them from
-    /// freely, outside of the garden/study playlists.
-    static let library: [MusicTrack] = [
-        MusicTrack(name: "Garden Afternoon", file: garden),
-        MusicTrack(name: "Moog City", file: moogCity),
-        MusicTrack(name: "Aria Math", file: ariaMath),
-        MusicTrack(name: "Sundowner", file: sundowner),
-        MusicTrack(name: "Verity Disstrack", file: verityDisstrack),
-        MusicTrack(name: "A Hollow Evening", file: hollowEvening),
-        MusicTrack(name: "Infinite Amethyst", file: infiniteAmethyst),
-        MusicTrack(name: "Nuclear Overture", file: nuclearOverture)
-    ]
+    static let library: [MusicTrack] = []
 }
 
 /// One entry in the Relax tab's song library.
@@ -226,7 +204,7 @@ final class MusicPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     /// while it's already playing does nothing, so it's safe to call from
     /// `onAppear`.
     func loop(_ filename: String, volume: Float = 0.35) {
-        guard let url = Self.url(for: filename) else { return }
+        guard !filename.isEmpty, let url = Self.url(for: filename) else { return }
         if player?.url == url, player?.isPlaying == true { return }
         playlist = []
         currentFile = filename

@@ -149,9 +149,11 @@ struct PointsPill: View {
             .padding(.vertical, 8)
             .background(Capsule().fill(Theme.card.opacity(0.9)))
             .overlay(Capsule().stroke(Theme.panelBorder, lineWidth: 1))
-            // Hidden entrance to admin mode: press and hold the coin counter.
+            #if DEBUG
+            // Hidden entrance to admin mode (debug builds only, never shipped).
             .onLongPressGesture(minimumDuration: 1.5) { showAdmin = true }
             .sheet(isPresented: $showAdmin) { AdminSheet() }
+            #endif
     }
 }
 
