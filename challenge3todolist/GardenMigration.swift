@@ -26,6 +26,33 @@ enum GardenMigration {
 
     /// Planted tiles, with each seed under its current name.
     static func tiles(_ old: [String: Tile], now: Date = Date()) -> [String: Tile] {
+        fitToGrid(renamed(old, now: now))
+    }
+
+    /// Plants saved in a bigger garden than today's fixed grid are moved into
+    /// empty plots inside it (top row first). If the grid is full they stay
+    /// where they were rather than being lost.
+    static func fitToGrid(_ tiles: [String: Tile]) -> [String: Tile] {
+        func inside(_ key: String) -> Bool {
+            let c = tileCoords(key); return Theme.isInGarden(col: c.col, row: c.row)
+        }
+        var result = tiles.filter { inside($0.key) }
+        let strays = tiles.keys.filter { !inside($0) }.sorted {
+            let a = tileCoords($0), b = tileCoords($1)
+            return a.row == b.row ? a.col < b.col : a.row < b.row
+        }
+        var free = (0..<Theme.gardenRows).flatMap { r in (0..<Theme.gardenCols).map { c in tileKey(c, r) } }
+            .filter { result[$0] == nil }
+            .makeIterator()
+        var next = free.next()
+        for key in strays {
+            if let spot = next, let tile = tiles[key] { result[spot] = tile; next = free.next() }
+            else { result[key] = tiles[key] }
+        }
+        return result
+    }
+
+    private static func renamed(_ old: [String: Tile], now: Date) -> [String: Tile] {
         old.mapValues { tile in
             var tile = tile
             if let seed = tile.seed { tile.seed = Catalog.currentCropName(for: seed) }

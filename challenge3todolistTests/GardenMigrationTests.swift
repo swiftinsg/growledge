@@ -74,3 +74,22 @@ struct CatalogArtTests {
         }
     }
 }
+
+@MainActor
+struct GardenFitTests {
+    @Test func plantsOutsideTheGridMoveInside() {
+        let crop = Catalog.crops[0].name
+        let old = ["0,0": Tile(seed: crop), "7,12": Tile(seed: crop), "-3,5": Tile(seed: crop)]
+        let fitted = GardenMigration.fitToGrid(old)
+        #expect(fitted.count == 3)
+        #expect(fitted.keys.allSatisfy { let c = tileCoords($0); return Theme.isInGarden(col: c.col, row: c.row) })
+    }
+
+    @Test func fullGridKeepsStraysInsteadOfLosingThem() {
+        let crop = Catalog.crops[0].name
+        var old: [String: Tile] = [:]
+        for r in 0..<Theme.gardenRows { for c in 0..<Theme.gardenCols { old[tileKey(c, r)] = Tile(seed: crop) } }
+        old["50,50"] = Tile(seed: crop)
+        #expect(GardenMigration.fitToGrid(old).count == old.count)
+    }
+}

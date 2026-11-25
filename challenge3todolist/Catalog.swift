@@ -160,6 +160,12 @@ enum Catalog {
     /// Names that are already current come back unchanged.
     static func currentCropName(for name: String) -> String {
         if cropByName[name] != nil { return name }
+        // The limited-edition pumpkins are gone; their plants become regular crops.
+        switch name {
+        case "pumpkin", "ghostlight pumpkin": return "ember fig"
+        case "pumpkin t", "witchfire gourd": return "phoenix flame"
+        default: break
+        }
         guard let old = legacyCropNames.firstIndex(of: name) else { return name }
         let position = Double(old) / Double(legacyCropNames.count - 1)
         return cropNames[Int((position * Double(cropNames.count - 1)).rounded())]
