@@ -44,7 +44,7 @@ struct BuyScreen: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         if type == .seeds {
-                            if let event = SeasonalEvent.current {
+                            if let event = SeasonalEvent.current, !Catalog.availableEventCrops.isEmpty {
                                 EventBanner(event: event)
                                 ForEach(Catalog.availableEventCrops) { crop in
                                     ShopRow(

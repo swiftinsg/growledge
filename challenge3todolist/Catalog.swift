@@ -54,15 +54,7 @@ enum Catalog {
         ("mossglow pear",    FruitStyle(shape: .pear,    primary: Color(hex: 0x6DBE45), secondary: Color(hex: 0xDDF7B0))),
         ("ember fig",        FruitStyle(shape: .pear,    primary: Color(hex: 0xD9482B), secondary: Color(hex: 0xFFB36B))),
         ("moonbloom plum",   FruitStyle(shape: .orb,     primary: Color(hex: 0x6C4AB6), secondary: Color(hex: 0xC9B8F5))),
-        ("frostmelon",       FruitStyle(shape: .orb,     primary: Color(hex: 0x3FC1B5), secondary: Color(hex: 0xE0FFFA), leaf: false)),
         ("sunscale citrus",  FruitStyle(shape: .orb,     primary: Color(hex: 0xF29B1D), secondary: Color(hex: 0xFFE08A))),
-        ("stormberry",       FruitStyle(shape: .cluster, primary: Color(hex: 0x4A6FA5), secondary: Color(hex: 0xA9C7F0), leaf: false)),
-        ("pixie apple",      FruitStyle(shape: .orb,     primary: Color(hex: 0xE0529C), secondary: Color(hex: 0xFFB3DA))),
-        ("dragon fruit",     FruitStyle(shape: .spiral,  primary: Color(hex: 0xD81E5B), secondary: Color(hex: 0x7BD389))),
-        ("phoenix flame",    FruitStyle(shape: .flame,   primary: Color(hex: 0xE63B2E), secondary: Color(hex: 0xFFD166), leaf: false)),
-        ("nova starfruit",   FruitStyle(shape: .star,    primary: Color(hex: 0xF2B705), secondary: Color(hex: 0xFFF6C2), leaf: false)),
-        ("unicorn peach",    FruitStyle(shape: .orb,     primary: Color(hex: 0xF08CC8), secondary: Color(hex: 0xCDB4FF))),
-        ("mermaid pearl",    FruitStyle(shape: .orb,     primary: Color(hex: 0x2EC4B6), secondary: Color(hex: 0xF1FFFD), leaf: false)),
         ("ruby crystal",     FruitStyle(shape: .crystal, primary: Color(hex: 0xC1121F), secondary: Color(hex: 0xFF8FA3), leaf: false)),
         ("nebula grape",     FruitStyle(shape: .cluster, primary: Color(hex: 0x7B2CBF), secondary: Color(hex: 0x5E8BFF))),
         ("golden apple",     FruitStyle(shape: .orb,     primary: Color(hex: 0xE5A800), secondary: Color(hex: 0xFFF3B0))),
@@ -77,15 +69,14 @@ enum Catalog {
 
     /// The pixel art we have so far. Anything missing falls back to drawn art.
     private static let pixelArt: [String: CropArt] = [
-        "dewdrop berry":   CropArt(seed: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
-        "mossglow pear":   CropArt(seed: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
-        "ember fig":       CropArt(seed: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
-        "moonbloom plum":  CropArt(seed: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
-        "sunscale citrus": CropArt(seed: "sunscalecitrusseeds", tree: "sunscalecitrusfruit"),
-        "mermaid pearl":   CropArt(sapling: "mermaidpearlsapling", tree: "mermaidpearltree"),
+        "dewdrop berry":   CropArt(sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
+        "mossglow pear":   CropArt(sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
+        "ember fig":       CropArt(sapling: "emberfigsapling", tree: "emberfigtree"),
+        "moonbloom plum":  CropArt(sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
+        "sunscale citrus": CropArt(tree: "sunscalecitrusfruit"),
         "ruby crystal":    CropArt(sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
         "golden apple":    CropArt(fruit: "goldenapple", sapling: "goldenapplesapling", tree: "goldenappletree"),
-        "aurora melon":    CropArt(seed: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
+        "aurora melon":    CropArt(sapling: "auramelonsapling", tree: "auroramelontree"),
         "celestial peach": CropArt(fruit: "celestialpeach", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
     ]
 
@@ -106,25 +97,9 @@ enum Catalog {
         }
     }()
 
-    // ---- Halloween (Oct 1 – Nov 19): 2 limited seeds ----
-    static let halloweenCrops: [Crop] = [
-        Crop(name: "ghostlight pumpkin", price: 18_000, growSeconds: 2_400,
-             style: FruitStyle(shape: .orb, primary: Color(hex: 0xF57C00), secondary: Color(hex: 0xFFD08A)), event: .halloween),
-        Crop(name: "witchfire gourd", price: 42_000, growSeconds: 5_400,
-             style: FruitStyle(shape: .flame, primary: Color(hex: 0x7B2CBF), secondary: Color(hex: 0x9EF01A), leaf: false), event: .halloween)
-    ]
-
-    // ---- Christmas (Nov 20 – Jan 8): 4 limited seeds ----
-    static let christmasCrops: [Crop] = [
-        Crop(name: "gift berry", price: 20_000, growSeconds: 2_700,
-             style: FruitStyle(shape: .cluster, primary: Color(hex: 0xD9404D), secondary: Color(hex: 0xFFD6D9)), event: .christmas),
-        Crop(name: "starlight fruit", price: 35_000, growSeconds: 3_600,
-             style: FruitStyle(shape: .star, primary: Color(hex: 0xF2C94C), secondary: Color(hex: 0xFFFBE0), leaf: false), event: .christmas),
-        Crop(name: "frosted pine cone", price: 50_000, growSeconds: 4_500,
-             style: FruitStyle(shape: .crystal, primary: Color(hex: 0x4FC3E8), secondary: Color(hex: 0xE6FAFF), leaf: false), event: .christmas),
-        Crop(name: "cocoa bloom", price: 70_000, growSeconds: 5_400,
-             style: FruitStyle(shape: .lotus, primary: Color(hex: 0x8D5A3A), secondary: Color(hex: 0xF3D9B5), leaf: false), event: .christmas)
-    ]
+    // Limited-edition seeds have been removed from the catalog.
+    static let halloweenCrops: [Crop] = []
+    static let christmasCrops: [Crop] = []
 
     /// All crops currently buyable from the shop: the regular rotation plus
     /// whichever seasonal event (if any) is running right now.
@@ -176,11 +151,6 @@ enum Catalog {
     /// Names that are already current come back unchanged.
     static func currentCropName(for name: String) -> String {
         if cropByName[name] != nil { return name }
-        switch name {
-        case "pumpkin": return "ghostlight pumpkin"
-        case "pumpkin t": return "witchfire gourd"
-        default: break
-        }
         guard let old = legacyCropNames.firstIndex(of: name) else { return name }
         let position = Double(old) / Double(legacyCropNames.count - 1)
         return cropNames[Int((position * Double(cropNames.count - 1)).rounded())]
