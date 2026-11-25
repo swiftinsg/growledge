@@ -91,7 +91,7 @@ struct GrowTimeLabel: View {
     }
 }
 
-/// The 3x3 area a sprinkler waters, as a soft tinted square with the time left in the middle (no sprinkler drawn).
+/// The 3x3 area a sprinkler waters, including a visible sprinkler at its center.
 struct SprinklerArea: View {
     let sprinkler: Sprinkler
     let timeLeft: TimeInterval?
@@ -103,14 +103,23 @@ struct SprinklerArea: View {
                 .fill(sprinkler.color.opacity(0.16))
             RoundedRectangle(cornerRadius: 18)
                 .stroke(sprinkler.color.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
-            if let timeLeft {
-                Text(timeText(timeLeft))
-                    .font(.system(size: 11, weight: .semibold))
+            VStack(spacing: 2) {
+                Image(systemName: "sprinkler.and.droplets.fill")
+                    .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.5), radius: 2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(sprinkler.color.opacity(0.7)))
+                    .shadow(color: .black.opacity(0.45), radius: 2)
+                    .padding(8)
+                    .background(Circle().fill(sprinkler.color))
+
+                if let timeLeft {
+                    Text(timeText(timeLeft))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.5), radius: 2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(sprinkler.color.opacity(0.7)))
+                }
             }
         }
         .frame(width: side, height: side)
