@@ -54,6 +54,16 @@ struct GardenTilesLayer: View {
                 }
             }
 
+            // How long each plant still needs, just below it (on top of everything)
+            ForEach(orderedKeys.filter { store.tiles[$0]?.seed != nil }, id: \.self) { key in
+                if let tile = store.tiles[key], let crop = Catalog.cropByName[tile.seed ?? ""] {
+                    GrowTimeLabel(timeLeft: store.isReady(tile) ? nil
+                                  : (crop.growSeconds - tile.progress) / max(store.speed(forKey: key), 0.01))
+                        .position(x: center(key).x, y: center(key).y + Theme.tileSize / 2 - 9)
+                        .allowsHitTesting(false)
+                }
+            }
+
             // Tapping a sprinkler's middle plot shows how long it has left
             ForEach(orderedKeys.filter { store.tiles[$0]?.sprinkler != nil }, id: \.self) { key in
                 Color.clear
@@ -64,6 +74,20 @@ struct GardenTilesLayer: View {
                     .allowsHitTesting(onTapTile != nil)
             }
         }
+    }
+}
+
+/// "3h 20m" under a growing plant, or "Ready" once it can be harvested.
+struct GrowTimeLabel: View {
+    let timeLeft: Double?
+
+    var body: some View {
+        Text(timeLeft.map(shortTimeText) ?? "Ready")
+            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill((timeLeft == nil ? Theme.good : Color.black).opacity(0.55)))
     }
 }
 

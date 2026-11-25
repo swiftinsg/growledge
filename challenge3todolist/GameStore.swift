@@ -33,6 +33,15 @@ func timeText(_ seconds: Double) -> String {
     return t >= 60 ? "\(t / 60)m \(t % 60)s" : "\(t)s"
 }
 
+// Compact time left for labels under plants: "45s", "12m", "3h 20m", "2d 4h"
+func shortTimeText(_ seconds: Double) -> String {
+    let t = max(0, Int(ceil(seconds)))
+    if t < 60 { return "\(t)s" }
+    if t < 3600 { return "\((t + 59) / 60)m" }
+    if t < 86400 { return "\(t / 3600)h \((t % 3600) / 60)m" }
+    return "\(t / 86400)d \((t % 86400) / 3600)h"
+}
+
 // Time already grown (rounds down)
 func elapsedText(_ seconds: Double) -> String {
     let t = max(0, Int(floor(seconds)))
