@@ -29,8 +29,6 @@ struct Crop: Identifiable {
     var style: FruitStyle = .fallback
     /// Pixel pictures, when we have them.
     var art: CropArt? = nil
-    /// Event crops only exist in the shop during their season (see `Catalog.availableEventCrops`).
-    var event: SeasonalEvent? = nil
     var id: String { name }
 }
 
@@ -106,24 +104,9 @@ enum Catalog {
         }
     }()
 
-    // Limited-edition seeds have been removed from the catalog.
-    static let halloweenCrops: [Crop] = []
-    static let christmasCrops: [Crop] = []
-
-    /// All crops currently buyable from the shop: the regular rotation plus
-    /// whichever seasonal event (if any) is running right now.
-    static var availableEventCrops: [Crop] {
-        switch SeasonalEvent.current {
-        case .halloween: return halloweenCrops
-        case .christmas: return christmasCrops
-        case .none: return []
-        }
-    }
-
     // uniquingKeysWith so a duplicate name can never crash the app
     static let cropByName: [String: Crop] = {
-        let all = crops + halloweenCrops + christmasCrops
-        return Dictionary(all.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        return Dictionary(crops.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
     }()
 
     // 7 sprinkler tiers. They speed up plants in the 3x3 area around them.

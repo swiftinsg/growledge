@@ -54,13 +54,13 @@ struct GardenMigrationTests {
 
 struct CatalogArtTests {
     @Test func everyCropHasAUniqueNameAndLooks() {
-        let all = Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops
+        let all = Catalog.crops
         #expect(Set(all.map(\.name)).count == all.count)
     }
 
     @Test func noMemeNamesAreLeftInTheShop() {
         let banned = ["doge", "obama", "trump", "ronaldo", "ishowspeed", "sahur", "patapim", "skibidi", "brainrot"]
-        for crop in Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops {
+        for crop in Catalog.crops {
             for word in banned { #expect(!crop.name.contains(word)) }
         }
     }

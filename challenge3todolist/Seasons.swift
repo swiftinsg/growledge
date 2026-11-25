@@ -7,53 +7,6 @@
 
 import SwiftUI
 
-/// A limited-time shop event, scheduled yearly by the real calendar date.
-enum SeasonalEvent: Equatable {
-    case halloween, christmas
-
-    /// Which event (if any) is running right now, by the device's real date.
-    static var current: SeasonalEvent? {
-        let cal = Calendar.current
-        let now = Date()
-        let year = cal.component(.year, from: now)
-
-        func range(_ y1: Int, _ m1: Int, _ d1: Int, _ y2: Int, _ m2: Int, _ d2: Int) -> ClosedRange<Date>? {
-            guard let start = cal.date(from: DateComponents(year: y1, month: m1, day: d1, hour: 0, minute: 0)),
-                  let end = cal.date(from: DateComponents(year: y2, month: m2, day: d2, hour: 23, minute: 59, second: 59))
-            else { return nil }
-            return start...end
-        }
-
-        // Halloween: October 1 – November 19.
-        if let halloween = range(year, 10, 1, year, 11, 19), halloween.contains(now) {
-            return .halloween
-        }
-        // Christmas: November 20 – December 31, continuing into January 1–8
-        // of the following year.
-        if let christmasLate = range(year, 11, 20, year, 12, 31), christmasLate.contains(now) {
-            return .christmas
-        }
-        if let christmasEarly = range(year, 1, 1, year, 1, 8), christmasEarly.contains(now) {
-            return .christmas
-        }
-        return nil
-    }
-
-    var title: String {
-        switch self {
-        case .halloween: "Halloween"
-        case .christmas: "Christmas"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .halloween: "moon.stars.fill"
-        case .christmas: "snowflake"
-        }
-    }
-}
-
 enum Season: String, CaseIterable {
     case rainy, sunny, snowy
 

@@ -505,7 +505,7 @@ private struct VectorTree: View {
 #Preview("Fruits and seeds") {
     ScrollView {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-            ForEach(Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops) { crop in
+            ForEach(Catalog.crops) { crop in
                 VStack(spacing: 6) {
                     CropFruitView(crop: crop, size: 64)
                     CropSeedView(crop: crop, size: 48)

@@ -54,9 +54,9 @@ extension GameStore {
         AdminMode.shared.isActive ? 0 : price
     }
 
-    /// Adds `count` of every seed (the regular ones and any running event's).
+    /// Adds `count` of every seed .
     func adminGiveAllSeeds(count: Int) {
-        let crops = Catalog.crops + Catalog.availableEventCrops
+        let crops = Catalog.crops
         for crop in crops {
             inventory["seed:\(crop.name)", default: 0] += count
         }

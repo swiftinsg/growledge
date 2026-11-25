@@ -58,7 +58,8 @@ struct GardenTilesLayer: View {
             ForEach(orderedKeys.filter { store.tiles[$0]?.seed != nil }, id: \.self) { key in
                 if let tile = store.tiles[key], let crop = Catalog.cropByName[tile.seed ?? ""] {
                     GrowTimeLabel(timeLeft: store.isReady(tile) ? nil
-                                  : (crop.growSeconds - tile.progress) / max(store.speed(forKey: key), 0.01))
+                                  : (crop.growSeconds - tile.progress) / max(store.speed(forKey: key), 0.01),
+                                  speed: store.speed(forKey: key))
                         .position(x: center(key).x, y: center(key).y + Theme.tileSize / 2 - 9)
                         .allowsHitTesting(false)
                 }
@@ -80,14 +81,23 @@ struct GardenTilesLayer: View {
 /// "3h 20m" under a growing plant, or "Ready" once it can be harvested.
 struct GrowTimeLabel: View {
     let timeLeft: Double?
+    /// Growth speed right now (1 = normal). Above 1, a sprinkler or the
+    /// weather is speeding the plant up, and the label says so.
+    var speed: Double = 1
+
+    private var boosted: Bool { timeLeft != nil && speed > 1.001 }
 
     var body: some View {
-        Text(timeLeft.map(shortTimeText) ?? "Ready")
-            .font(.system(size: 11, weight: .semibold).monospacedDigit())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(Capsule().fill((timeLeft == nil ? Theme.good : Color.black).opacity(0.55)))
+        HStack(spacing: 3) {
+            if boosted { Image(systemName: "bolt.fill") }
+            Text(timeLeft.map(shortTimeText) ?? "Ready")
+            if boosted { Text("×\(speed.formatted(.number.precision(.fractionLength(0...1))))") }
+        }
+        .font(.system(size: 11, weight: .semibold).monospacedDigit())
+        .foregroundStyle(boosted ? Color.black : .white)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(Capsule().fill(boosted ? Theme.gold : (timeLeft == nil ? Theme.good : Color.black).opacity(0.55)))
     }
 }
 

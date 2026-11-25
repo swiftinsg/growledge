@@ -42,7 +42,7 @@ struct BulkActionsTests {
         #expect(store.plantAll(in: cells(3)) == 2)
         #expect(store.tiles["0,0"]?.seed == firstCrop)
         #expect(store.tiles["1,0"]?.seed == firstCrop)
-        #expect(store.tiles["0,1"]?.seed == firstCrop)
+        #expect(store.tiles[tileKey(2 % Theme.gardenCols, 2 / Theme.gardenCols)]?.seed == firstCrop)
         #expect(store.count("gear:1") == 1)
     }
 

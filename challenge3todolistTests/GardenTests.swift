@@ -167,7 +167,7 @@ struct CatalogTests {
     @Test func cropNamesAreUnique() {
         // The regular crops and the limited-time event crops share one lookup,
         // so no name may appear twice anywhere.
-        let all = Catalog.crops + Catalog.halloweenCrops + Catalog.christmasCrops
+        let all = Catalog.crops
         #expect(Set(all.map(\.name)).count == all.count)
         #expect(Catalog.cropByName.count == all.count)
     }
