@@ -35,8 +35,8 @@ enum Theme {
     /// iPhone (about 94pt on an iPhone SE).
     static var tileSize: CGFloat { (UIScreen.main.bounds.width * 0.25).rounded() }
     // The garden is a small fixed grid, so there are only a few big plots.
-    static let gardenCols = 4
-    static let gardenRows = 4
+    static let gardenCols = 3
+    static let gardenRows = 3
 
     static func isInGarden(col: Int, row: Int) -> Bool {
         (0..<gardenCols).contains(col) && (0..<gardenRows).contains(row)
