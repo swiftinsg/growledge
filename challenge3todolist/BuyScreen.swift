@@ -50,7 +50,7 @@ struct BuyScreen: View {
                                     ShopRow(
                                         id: "seed:\(crop.name)",
                                         title: crop.name.capitalized + " Seeds",
-                                        subtitle: "Limited time · Grows in \(timeText(crop.growSeconds))",
+                                        subtitle: "Limited time · Grows in \(shortTimeText(crop.growSeconds))",
                                         price: crop.price,
                                         onBought: showReceipt
                                     )
@@ -61,7 +61,7 @@ struct BuyScreen: View {
                                 ShopRow(
                                     id: "seed:\(crop.name)",
                                     title: crop.name.capitalized + " Seeds",
-                                    subtitle: "Grows in \(timeText(crop.growSeconds))",
+                                    subtitle: "Grows in \(shortTimeText(crop.growSeconds))",
                                     price: crop.price,
                                     onBought: showReceipt
                                 )

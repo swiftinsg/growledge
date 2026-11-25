@@ -290,14 +290,14 @@ struct Game: View {
         guard let tile = store.tiles[key] else { return }
         if let tier = tile.sprinkler, let sp = Catalog.sprinkler(tier: tier) {
             if let left = store.sprinklerTimeLeft(tile) {
-                showToast("\(sp.name) · \(timeText(left)) left")
+                showToast("\(sp.name) · \(shortTimeText(left)) left")
             }
             return
         }
         guard let seed = tile.seed, let crop = Catalog.cropByName[seed] else { return }
         guard store.isReady(tile) else {
             let left = (crop.growSeconds - tile.progress) / store.speed(forKey: key)
-            showToast("\(crop.name.capitalized) · \(timeText(left)) left")
+            showToast("\(crop.name.capitalized) · \(shortTimeText(left)) left")
             return
         }
         if let result = store.harvestTile(key) {

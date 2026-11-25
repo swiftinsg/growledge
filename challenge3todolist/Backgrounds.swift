@@ -112,7 +112,7 @@ struct SprinklerArea: View {
                     .background(Circle().fill(sprinkler.color))
 
                 if let timeLeft {
-                    Text(timeText(timeLeft))
+                    Text(shortTimeText(timeLeft))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.5), radius: 2)
