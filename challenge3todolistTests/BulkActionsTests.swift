@@ -83,3 +83,19 @@ struct BulkActionsTests {
         #expect(store.points == before)
     }
 }
+
+@MainActor
+@Suite(.serialized)
+struct ReplantAfterHarvestTests {
+    @Test func harvestedPlotCanBePlantedAgain() {
+        let store = GameStore()
+        store.tiles = [:]
+        store.inventory = ["seed:\(firstCrop)": 2]
+        store.cropHarvests = [:]
+        #expect(store.place("seed:\(firstCrop)", col: 1, row: 1))
+        store.tiles["1,1"]?.progress = Catalog.cropByName[firstCrop]!.growSeconds
+        #expect(store.harvestTile("1,1") != nil)
+        #expect(store.tiles["1,1"] == nil)
+        #expect(store.place("seed:\(firstCrop)", col: 1, row: 1))
+    }
+}

@@ -149,14 +149,13 @@ struct GardenBackground: View {
     }
 }
 
-/// The same garden as the Home tab, used behind the other tabs.
+/// The ordinary system background, the same as the Study and History pages,
+/// used behind the Hub and its detail pages.
 struct AppBackground: View {
     var body: some View {
-        GeometryReader { geo in
-            GardenPlot(offset: Theme.centeredGardenOffset(in: geo.size))
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
+        Color(.systemBackground)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
     }
 }
 

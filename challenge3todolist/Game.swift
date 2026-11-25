@@ -43,6 +43,9 @@ struct Game: View {
                 // Tap any ready tile to harvest just that one crop.
                 GardenTilesLayer(store: store, offset: plotOffset, onTapTile: harvestOne)
 
+                // Weather (snow, rain or sun rays)
+                WeatherLayer()
+
                 // Highlight exactly where the dragged plant will land —
                 // filled, not just outlined, so it's unmistakable while dragging.
                 if let d = dragging, gardenFrame != .zero {
@@ -60,7 +63,17 @@ struct Game: View {
                 }
             }
             .ignoresSafeArea()
-            .readFrame($gardenFrame)
+            // Measured over the whole screen (safe areas included), because that
+            // is the space the plots are drawn in. Using the smaller safe-area
+            // frame shifted every plot's drop zone down by ~60pt.
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { gardenFrame = geo.frame(in: .global) }
+                        .onChange(of: geo.frame(in: .global)) { _, new in gardenFrame = new }
+                }
+                .ignoresSafeArea()
+            )
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
@@ -135,7 +148,7 @@ struct Game: View {
         }
 
         // Inventory bar (right side)
-        .overlay(alignment: .trailing) {
+        .overlay(alignment: .topTrailing) {
             InventoryBar(dragging: $dragging, onPlantAll: { plantAll() }) { id, point in
                 plant(id, atGlobal: point)
             }
@@ -144,42 +157,33 @@ struct Game: View {
             .padding(.bottom, 150)
         }
 
-        // Harvest: press and HOLD (bottom left)
-        .overlay(alignment: .bottomLeading) {
-            ButtonLook(title: "Hold to Harvest All", icon: "hand.tap.fill", width: 220, height: 56)
-                .overlay(alignment: .topTrailing) {
-                    if store.readyCount > 0 {
-                        Text("\(store.readyCount)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                            .padding(7)
-                            .background(Circle().fill(Theme.good))
-                            .offset(x: 8, y: -8)
-                    }
-                }
-                .scaleEffect(holding ? 0.92 : 1)
-                .animation(.spring(duration: 0.25), value: holding)
-                .onLongPressGesture(minimumDuration: 0.7, perform: {
-                    harvest()
-                }, onPressingChanged: { pressing in
-                    holding = pressing
-                })
-                .padding()
+        // Harvest all: only worth having when 2+ plants are ready (there are only 9 plots)
+        .overlay(alignment: .bottom) {
+            if store.readyCount >= 2 {
+                ButtonLook(title: "Hold to Harvest All (\(store.readyCount))", icon: "hand.tap.fill", width: 300, height: 50)
+                    .scaleEffect(holding ? 0.92 : 1)
+                    .animation(.spring(duration: 0.25), value: holding)
+                    .onLongPressGesture(minimumDuration: 0.7, perform: {
+                        harvest()
+                    }, onPressingChanged: { pressing in
+                        holding = pressing
+                    })
+                    .padding(.bottom, 96)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
+        .animation(.spring(duration: 0.3), value: store.readyCount >= 2)
 
-        // Buy + Sell (bottom right, stacked). Plain Buttons that push the
-        // screen themselves, each with one gesture recognizer, spaced well
-        // apart — the old NavigationLink-plus-overlapping-gesture pairing
-        // here is what made taps land on the wrong button.
-        .overlay(alignment: .bottomTrailing) {
-            VStack(spacing: 18) {
+        // Buy + Sell side by side along the bottom. Plain Buttons that push the
+        // screen themselves, each with one gesture recognizer.
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 16) {
                 Button {
                     Haptics.tap()
                     SoundPlayer.shopBell()
                     showingBuy = true
                 } label: {
-                    ButtonLook(title: "Buy", icon: "cart.fill", width: 120, height: 46)
+                    ButtonLook(title: "Buy", icon: "cart.fill", width: 170, height: 56)
                 }
                 .bouncy(haptic: false)
 
@@ -188,11 +192,11 @@ struct Game: View {
                     SoundPlayer.pop()
                     showingSell = true
                 } label: {
-                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 120, height: 46)
+                    ButtonLook(title: "Sell", icon: "dollarsign.circle.fill", width: 170, height: 56)
                 }
                 .bouncy(haptic: false)
             }
-            .padding()
+            .padding(.bottom, 24)
         }
 
         // The icon that follows your finger (keep this LAST so it is on top)
@@ -218,9 +222,13 @@ struct Game: View {
 
     func plant(_ id: String, atGlobal point: CGPoint) {
         guard gardenFrame != .zero else { return }
-        // ignore drops on top of the inventory bar
-        guard point.x < gardenFrame.maxX - 92 else { return }
-
+        // No blanket "ignore the right edge" rule: the bar overlaps the garden's
+        // right-hand column, and that column must stay plantable.
+        guard !id.hasPrefix("crop:") else {
+            Haptics.warning()
+            showToast("That's a harvested crop — sell it. Plant seeds instead")
+            return
+        }
         let spot = tileAt(point)
         if store.place(id, col: spot.col, row: spot.row) {
             Haptics.tap()
