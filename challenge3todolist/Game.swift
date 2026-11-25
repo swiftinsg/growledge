@@ -22,20 +22,21 @@ struct Game: View {
     var onExit: (() -> Void)? = nil
 
     @ObservedObject private var store = GameStore.shared
-    @State private var plotOffset = CGSize.zero
-    @State private var savedOffset = CGSize.zero
     @State private var holding = false
-    @State private var hasCentered = false
     @State private var toast: String?
     @State private var dragging: DragInfo?
     @State private var gardenFrame: CGRect = .zero
     @State private var showingBuy = false
+
+    private var plotOffset: CGSize {
+        Theme.centeredGardenOffset(in: gardenFrame.size)
+    }
     @State private var showingSell = false
     @AppStorage("hasPlantedOnce") private var hasPlantedOnce = false
 
     var body: some View {
         ZStack {
-            // ---------- Garden: ground + plants + rain + drag to move ----------
+            // ---------- Garden: fixed 3x3 ground + plants ----------
             ZStack {
                 GardenPlot(offset: plotOffset)
 
@@ -60,14 +61,6 @@ struct Game: View {
             }
             .ignoresSafeArea()
             .readFrame($gardenFrame)
-            .onChange(of: gardenFrame.size) { _, size in
-                // Start at the top of the garden, inside the panning limits.
-                guard size != .zero, !hasCentered else { return }
-                hasCentered = true
-                plotOffset = clamped(CGSize(width: 0, height: 80))
-                savedOffset = plotOffset
-            }
-            .simultaneousGesture(panGesture)
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
@@ -209,38 +202,6 @@ struct Game: View {
     }
 
     // ---------- Actions ----------
-    var panGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                plotOffset = clamped(CGSize(
-                    width: savedOffset.width + value.translation.width,
-                    height: savedOffset.height + value.translation.height
-                ))
-            }
-            .onEnded { _ in
-                savedOffset = plotOffset
-            }
-    }
-
-    /// Stops panning at the garden's edges, so you never scroll onto empty
-    /// ground. The margins leave room for the buttons at the top and bottom.
-    func clamped(_ offset: CGSize) -> CGSize {
-        CGSize(
-            width: clamp(offset.width, content: CGFloat(Theme.gardenCols) * Theme.tileSize,
-                         view: gardenFrame.width, before: 0, after: 92),
-            height: clamp(offset.height, content: CGFloat(Theme.gardenRows) * Theme.tileSize,
-                          view: gardenFrame.height, before: 80, after: 160)
-        )
-    }
-
-    private func clamp(_ value: CGFloat, content: CGFloat, view: CGFloat,
-                       before: CGFloat, after: CGFloat) -> CGFloat {
-        let lowest = view - after - content   // far edge of the garden reached
-        let highest = before                  // near edge of the garden reached
-        // Smaller than the screen: no panning, just centred in the free space.
-        if lowest > highest { return before + (view - before - after - content) / 2 }
-        return min(max(value, lowest), highest)
-    }
 
     // Which tile is under a point on the screen
     func tileAt(_ point: CGPoint) -> (col: Int, row: Int) {
@@ -280,23 +241,11 @@ struct Game: View {
             showToast("You have no seeds — buy some first")
             return
         }
-        let ts = Theme.tileSize
-        // The part of the screen that is clear of the HUD, the bag on the
-        // right and the buttons along the bottom.
-        let area = CGRect(x: 0, y: 80, width: gardenFrame.width - 92, height: gardenFrame.height - 80 - 160)
-        let firstCol = Int(floor(-plotOffset.width / ts)) - 1
-        let lastCol = Int(ceil((area.maxX - plotOffset.width) / ts)) + 1
-        let firstRow = Int(floor((area.minY - plotOffset.height) / ts)) - 1
-        let lastRow = Int(ceil((area.maxY - plotOffset.height) / ts)) + 1
-
+        // The garden is fixed, so bulk planting considers every one of its nine cells.
         var cells: [(col: Int, row: Int)] = []
-        for row in firstRow...lastRow {
-            for col in firstCol...lastCol {
-                let center = CGPoint(x: (CGFloat(col) + 0.5) * ts + plotOffset.width,
-                                     y: (CGFloat(row) + 0.5) * ts + plotOffset.height)
-                if area.contains(center) && !isOccupied((col, row)) {
-                    cells.append((col, row))
-                }
+        for row in 0..<Theme.gardenRows {
+            for col in 0..<Theme.gardenCols where !isOccupied((col, row)) {
+                cells.append((col, row))
             }
         }
 
@@ -306,10 +255,10 @@ struct Game: View {
             SoundPlayer.plant()
             withAnimation { hasPlantedOnce = true }
             let left = store.seedsInBag.reduce(0) { $0 + store.count($1) }
-            showToast("Planted \(planted) seed\(planted == 1 ? "" : "s")" + (left > 0 ? " — \(left) left, no more room in view" : ""))
+            showToast("Planted \(planted) seed\(planted == 1 ? "" : "s")" + (left > 0 ? " — \(left) left, no more room in the garden" : ""))
         } else {
             Haptics.warning()
-            showToast("No empty spots in view")
+            showToast("No empty spots in the garden")
         }
     }
 
