@@ -69,14 +69,14 @@ enum Catalog {
 
     /// The pixel art we have so far. Anything missing falls back to drawn art.
     private static let pixelArt: [String: CropArt] = [
-        "dewdrop berry":   CropArt(sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
-        "mossglow pear":   CropArt(sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
-        "ember fig":       CropArt(sapling: "emberfigsapling", tree: "emberfigtree"),
-        "moonbloom plum":  CropArt(sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
-        "sunscale citrus": CropArt(tree: "sunscalecitrusfruit"),
+        "dewdrop berry":   CropArt(seed: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
+        "mossglow pear":   CropArt(seed: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
+        "ember fig":       CropArt(seed: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
+        "moonbloom plum":  CropArt(seed: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
+        "sunscale citrus": CropArt(seed: "sunscalecitrusseeds", tree: "sunscalecitrusfruit"),
         "ruby crystal":    CropArt(sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
         "golden apple":    CropArt(fruit: "goldenapple", sapling: "goldenapplesapling", tree: "goldenappletree"),
-        "aurora melon":    CropArt(sapling: "auramelonsapling", tree: "auroramelontree"),
+        "aurora melon":    CropArt(seed: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
         "celestial peach": CropArt(fruit: "celestialpeach", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
     ]
 
