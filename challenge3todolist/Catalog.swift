@@ -75,16 +75,18 @@ enum Catalog {
 
     /// The pixel art we have so far. Anything missing falls back to drawn art.
     private static let pixelArt: [String: CropArt] = [
-        "dewdrop berry":   CropArt(seed: "dewdropberryseed", sapling: "dewdropberrysapling", tree: "dewdropberrytree"),
-        "mossglow pear":   CropArt(seed: "mosglowpearseeds", sapling: "mosglowpearsapling", tree: "mosglowpearseeds 1"),
-        "ember fig":       CropArt(seed: "emberfigseeds", sapling: "emberfigsapling", tree: "emberfigtree"),
-        "moonbloom plum":  CropArt(seed: "moonbloomplumseed", sapling: "moonbloomplumsapling", tree: "moonbloomplumtree"),
-        "sunscale citrus": CropArt(seed: "sunscalecitrusseeds", tree: "sunscalecitrusfruit"),
-        "mermaid pearl":   CropArt(sapling: "mermaidpearlsapling", tree: "mermaidpearltree"),
-        "ruby crystal":    CropArt(sapling: "rubycrystalsapling", tree: "rubycrystaltree"),
-        "golden apple":    CropArt(fruit: "goldenapple", sapling: "goldenapplesapling", tree: "goldenappletree"),
-        "aurora melon":    CropArt(seed: "auroramelonseed", sapling: "auramelonsapling", tree: "auroramelontree"),
-        "celestial peach": CropArt(fruit: "celestialpeach", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
+        "dewdrop berry":   CropArt(seed: "dewdropberryseed", fruit: "dewdropberryfruit", sapling: "dewdropberrysapling", tree: "dewdropfruit"),
+        "mossglow pear":   CropArt(seed: "mossglowpearseed", fruit: "mossglowpearfruit", sapling: "mossglowpearsapling", tree: "mossglowpearseedtree"),
+        "ember fig":       CropArt(seed: "emberfigseed", fruit: "emberfigfruit", sapling: "emberfigsapling", tree: "emberfigtree"),
+        "moonbloom plum":  CropArt(seed: "moonbloomplumseed", fruit: "moonbloomplumfruit"),
+        "sunscale citrus": CropArt(seed: "sunscalecitrusseed", fruit: "sunscalecitrusfruit", sapling: "sunscalecitrussapling", tree: "sunscalercitrustree"),
+        "phoenix flame":   CropArt(seed: "pheonixflameseed", fruit: "pheonixflamefruit", sapling: "pheonixflamesapling", tree: "pheonixflametree"),
+        "unicorn peach":   CropArt(seed: "unicornpeachseed", fruit: "unicornpeachfruit", sapling: "unicornpeachsapling"),
+        "mermaid pearl":   CropArt(fruit: "mermaidpearlfruit", sapling: "pixil-frame-0 (62)", tree: "mermaidpearltree"),
+        "ruby crystal":    CropArt(seed: "rubycrystalseeds", fruit: "rubycrystalfruit", sapling: "rubycrystalsapling", tree: "rubysrystaltree"),
+        "golden apple":    CropArt(seed: "goldenappleseed", fruit: "goldenapplefruit", tree: "goldenappletree"),
+        "aurora melon":    CropArt(seed: "auroramelonseeds", fruit: "auroramelonfruit", sapling: "auroramelonsapling", tree: "auroramelontree"),
+        "celestial peach": CropArt(seed: "celestialpeachseed", fruit: "celestialpeachfruit", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
     ]
 
     static let minPrice = 10.0

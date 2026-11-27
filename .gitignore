@@ -7,3 +7,8 @@ xcuserdata/
 DerivedData/
 build/
 .build/
+
+# Stray project copies and archives
+challenge3todolist [0-9]*/
+challenge3todolist-updated*/
+*.zip
