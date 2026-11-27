@@ -127,7 +127,7 @@ struct InventoryCell: View {
         }
         .frame(width: 64)
         .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.chip))
         .opacity(dragging?.id == id ? 0.4 : 1)
         .itemDrag(id: id, dragging: $dragging, onDrop: onDrop)
     }

@@ -8,10 +8,51 @@ import SwiftUI
 // =====================================================================
 // MARK: - 1. THEME  (change colors, sizes and the button image here)
 // =====================================================================
+
+/// The user's appearance choice, saved in UserDefaults and applied at the root.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
+
+    /// nil means "follow the system setting".
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+extension Color {
+    /// A colour that changes with the system/app appearance.
+    static func adaptive(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+}
+
 enum Theme {
     // The garden ground never changes colour, whatever the season
     static let grass = Color(red: 0.40, green: 0.66, blue: 0.50)
-    
 
     // Season-dependent colours: they follow the current season (see Seasons.swift)
     static var backdropTop: Color { Season.current.backdropTop }
@@ -19,12 +60,30 @@ enum Theme {
     static var card: Color { Season.current.card }
     static var accent: Color { Season.current.accent }
 
-    // Colours that stay the same in every season
+    // Colours that stay the same in every season, but adapt to light/dark mode
     /// Text on top of a solid accent-coloured button
     static let buttonText = Color(red: 0.05, green: 0.09, blue: 0.13)
-    static let panelBorder = Color.white.opacity(0.12)
-    static let text = Color(red: 0.88, green: 0.92, blue: 0.96)
-    static let subtext = Color(red: 0.88, green: 0.92, blue: 0.96).opacity(0.6)
+    static let panelBorder = Color.adaptive(
+        light: UIColor(white: 0, alpha: 0.12),
+        dark: UIColor(white: 1, alpha: 0.12)
+    )
+    static let text = Color.adaptive(
+        light: UIColor(red: 0.10, green: 0.14, blue: 0.18, alpha: 1),
+        dark: UIColor(red: 0.88, green: 0.92, blue: 0.96, alpha: 1)
+    )
+    static let subtext = Color.adaptive(
+        light: UIColor(red: 0.10, green: 0.14, blue: 0.18, alpha: 0.62),
+        dark: UIColor(red: 0.88, green: 0.92, blue: 0.96, alpha: 0.6)
+    )
+    /// Thin track behind progress bars and small chips on a card.
+    static let track = Color.adaptive(
+        light: UIColor(white: 0, alpha: 0.10),
+        dark: UIColor(white: 1, alpha: 0.14)
+    )
+    static let chip = Color.adaptive(
+        light: UIColor(white: 0, alpha: 0.06),
+        dark: UIColor(white: 1, alpha: 0.08)
+    )
     static let good = Color(red: 0.45, green: 0.78, blue: 0.65)        // soft teal
     static let gold = Color(red: 0.93, green: 0.78, blue: 0.50)
     static let bad = Color(red: 0.88, green: 0.45, blue: 0.50)

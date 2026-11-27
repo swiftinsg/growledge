@@ -21,6 +21,33 @@ struct CropArt {
     var tree: String? = nil
 }
 
+/// Hand-made animations for a crop. Each is a file in the app bundle WITH its
+/// extension, so GIFs and MP4s can be mixed freely (see AnimatedSprite.swift).
+/// Any that are missing are simply skipped.
+struct CropAnim {
+    /// Plays when the seed is planted.
+    var planting: String? = nil
+    /// Plays when the seed turns into a sapling.
+    var seedToSapling: String? = nil
+    /// Plays when the sapling turns into the grown plant.
+    var saplingToTree: String? = nil
+
+    struct Item: Identifiable {
+        let title: String
+        let file: String
+        var id: String { file }
+    }
+
+    /// The animations this crop has, in the order they happen.
+    var all: [Item] {
+        var items: [Item] = []
+        if let planting { items.append(Item(title: "Planting", file: planting)) }
+        if let seedToSapling { items.append(Item(title: "Seed to sapling", file: seedToSapling)) }
+        if let saplingToTree { items.append(Item(title: "Sapling to plant", file: saplingToTree)) }
+        return items
+    }
+}
+
 struct Crop: Identifiable {
     let name: String
     let price: Int
@@ -29,7 +56,17 @@ struct Crop: Identifiable {
     var style: FruitStyle = .fallback
     /// Pixel pictures, when we have them.
     var art: CropArt? = nil
+    /// GIF / MP4 animations, when we have them.
+    var anim: CropAnim? = nil
+    /// What an average harvested crop sells for, as a multiple of the seed
+    /// price. Always above 1, so growing something is always worth it.
+    var sellMultiplier: Double = 1.5
     var id: String { name }
+
+    /// Base sell price of one average crop (before weight and mutation).
+    var sellPrice: Int { max(1, Int((Double(price) * sellMultiplier).rounded())) }
+    /// Coins earned per hour of waiting, for one plot, on an average crop.
+    var profitPerHour: Double { Double(sellPrice - price) / (growSeconds / 3600) }
 }
 
 struct Sprinkler: Identifiable {
@@ -40,40 +77,47 @@ struct Sprinkler: Identifiable {
     /// How long it keeps working after it is placed; better ones last longer.
     let duration: TimeInterval
     let color: Color
+    /// Your animation for it (a GIF in the app bundle).
+    let gif: String
+    /// Turns the GIF's colours round (in degrees) for tiers that have no GIF of their own.
+    var hue: Double = 0
     var id: Int { tier }
 }
 
 enum Catalog {
     // ORDER MATTERS: first = cheapest + fastest, last = most expensive + slowest.
-    // Prices go from 10 to 1,000,000,000 and growth from 10 minutes to 10 days
-    // automatically, spread across this list. Every name must be unique.
-    private static let fruitDefs: [(name: String, style: FruitStyle)] = [
-        ("dewdrop berry",    FruitStyle(shape: .drop,    primary: Color(hex: 0x4FB3E8), secondary: Color(hex: 0xD6F1FF))),
-        ("mossglow pear",    FruitStyle(shape: .pear,    primary: Color(hex: 0x6DBE45), secondary: Color(hex: 0xDDF7B0))),
-        ("ember fig",        FruitStyle(shape: .pear,    primary: Color(hex: 0xD9482B), secondary: Color(hex: 0xFFB36B))),
-        ("moonbloom plum",   FruitStyle(shape: .orb,     primary: Color(hex: 0x6C4AB6), secondary: Color(hex: 0xC9B8F5))),
-        ("frostmelon",       FruitStyle(shape: .orb,     primary: Color(hex: 0x3FC1B5), secondary: Color(hex: 0xE0FFFA), leaf: false)),
-        ("sunscale citrus",  FruitStyle(shape: .orb,     primary: Color(hex: 0xF29B1D), secondary: Color(hex: 0xFFE08A))),
-        ("stormberry",       FruitStyle(shape: .cluster, primary: Color(hex: 0x4A6FA5), secondary: Color(hex: 0xA9C7F0), leaf: false)),
-        ("pixie apple",      FruitStyle(shape: .orb,     primary: Color(hex: 0xE0529C), secondary: Color(hex: 0xFFB3DA))),
-        ("dragon fruit",     FruitStyle(shape: .spiral,  primary: Color(hex: 0xD81E5B), secondary: Color(hex: 0x7BD389))),
-        ("phoenix flame",    FruitStyle(shape: .flame,   primary: Color(hex: 0xE63B2E), secondary: Color(hex: 0xFFD166), leaf: false)),
-        ("nova starfruit",   FruitStyle(shape: .star,    primary: Color(hex: 0xF2B705), secondary: Color(hex: 0xFFF6C2), leaf: false)),
-        ("unicorn peach",    FruitStyle(shape: .orb,     primary: Color(hex: 0xF08CC8), secondary: Color(hex: 0xCDB4FF))),
-        ("mermaid pearl",    FruitStyle(shape: .orb,     primary: Color(hex: 0x2EC4B6), secondary: Color(hex: 0xF1FFFD), leaf: false)),
-        ("ruby crystal",     FruitStyle(shape: .crystal, primary: Color(hex: 0xC1121F), secondary: Color(hex: 0xFF8FA3), leaf: false)),
-        ("nebula grape",     FruitStyle(shape: .cluster, primary: Color(hex: 0x7B2CBF), secondary: Color(hex: 0x5E8BFF))),
-        ("golden apple",     FruitStyle(shape: .orb,     primary: Color(hex: 0xE5A800), secondary: Color(hex: 0xFFF3B0))),
-        ("ambrosia lotus",   FruitStyle(shape: .lotus,   primary: Color(hex: 0xFF6FAE), secondary: Color(hex: 0xFFE3A3), leaf: false)),
-        ("void berry",       FruitStyle(shape: .orb,     primary: Color(hex: 0x3A2263), secondary: Color(hex: 0xB45CFF), leaf: false)),
-        ("aurora melon",     FruitStyle(shape: .spiral,  primary: Color(hex: 0x2FCB88), secondary: Color(hex: 0xA56BFF))),
-        ("yggdrasil fruit",  FruitStyle(shape: .spiral,  primary: Color(hex: 0x2D6A4F), secondary: Color(hex: 0xE3B93B))),
-        ("celestial peach",  FruitStyle(shape: .orb,     primary: Color(hex: 0xFFB38A), secondary: Color(hex: 0xFFFFFF)))
+    // Only crops that have hand-made pixel art are in the game. To add a crop,
+    // draw it, add a row to `cropRows` (price, grow time) and a row to `pixelArt`.
+    // Every name must be unique.
+    //
+    // THE ECONOMY, in one place:
+    //  - A seed costs `price`. An average crop sells for price x sellMultiplier
+    //    (1.5x for the first crop, creeping up to about 2.3x for the last, because
+    //    waiting longer should pay better).
+    //  - Each harvest has a random weight (0.7x - 1.4x) and a small chance of a
+    //    shiny mutation, so a crop never sells for less than its seed (apart
+    //    from the rare Rotten / Infested ones).
+    //  - Grow times run from 5 minutes to 24 hours, so there is always something
+    //    worth planting before a study session, and something for overnight.
+    private static let cropRows: [(name: String, price: Int, grow: Double, style: FruitStyle)] = [
+        ("dewdrop berry",   15,     300,    FruitStyle(shape: .drop,    primary: Color(hex: 0x4FB3E8), secondary: Color(hex: 0xD6F1FF))),
+        ("mossglow pear",   45,     720,    FruitStyle(shape: .pear,    primary: Color(hex: 0x6DBE45), secondary: Color(hex: 0xDDF7B0))),
+        ("ember fig",       110,    1_500,  FruitStyle(shape: .pear,    primary: Color(hex: 0xD9482B), secondary: Color(hex: 0xFFB36B))),
+        ("moonbloom plum",  250,    2_700,  FruitStyle(shape: .orb,     primary: Color(hex: 0x6C4AB6), secondary: Color(hex: 0xC9B8F5))),
+        ("sunscale citrus", 550,    5_400,  FruitStyle(shape: .orb,     primary: Color(hex: 0xF29B1D), secondary: Color(hex: 0xFFE08A))),
+        ("phoenix flame",   1_200,  10_800, FruitStyle(shape: .flame,   primary: Color(hex: 0xE63B2E), secondary: Color(hex: 0xFFD166), leaf: false)),
+        ("unicorn peach",   2_600,  16_200, FruitStyle(shape: .orb,     primary: Color(hex: 0xF08CC8), secondary: Color(hex: 0xCDB4FF))),
+        ("mermaid pearl",   5_500,  21_600, FruitStyle(shape: .orb,     primary: Color(hex: 0x2EC4B6), secondary: Color(hex: 0xF1FFFD), leaf: false)),
+        ("ruby crystal",    11_000, 32_400, FruitStyle(shape: .crystal, primary: Color(hex: 0xC1121F), secondary: Color(hex: 0xFF8FA3), leaf: false)),
+        ("golden apple",    22_000, 43_200, FruitStyle(shape: .orb,     primary: Color(hex: 0xE5A800), secondary: Color(hex: 0xFFF3B0))),
+        ("aurora melon",    45_000, 64_800, FruitStyle(shape: .spiral,  primary: Color(hex: 0x2FCB88), secondary: Color(hex: 0xA56BFF))),
+        ("celestial peach", 90_000, 86_400, FruitStyle(shape: .orb,     primary: Color(hex: 0xFFB38A), secondary: Color(hex: 0xFFFFFF)))
     ]
 
-    static let cropNames: [String] = fruitDefs.map(\.name)
+    static let cropNames: [String] = cropRows.map(\.name)
 
-    /// The pixel art we have so far. Anything missing falls back to drawn art.
+    /// The pixel art we have. Names are the image sets in Assets.xcassets.
+    /// Anything missing falls back to drawn art.
     private static let pixelArt: [String: CropArt] = [
         "dewdrop berry":   CropArt(seed: "dewdropberryseed", fruit: "dewdropberryfruit", sapling: "dewdropberrysapling", tree: "dewdropfruit"),
         "mossglow pear":   CropArt(seed: "mossglowpearseed", fruit: "mossglowpearfruit", sapling: "mossglowpearsapling", tree: "mossglowpearseedtree"),
@@ -89,37 +133,47 @@ enum Catalog {
         "celestial peach": CropArt(seed: "celestialpeachseed", fruit: "celestialpeachfruit", sapling: "celestialpeachsapling", tree: "celestialpeachtree")
     ]
 
-    static let minPrice = 10.0
-    static let maxPrice = 1_000_000_000.0
-    static let minGrowSeconds = 600.0       // 10 minutes
-    static let maxGrowSeconds = 864000.0    // 10 days
+    /// Your animations. Files can be .gif or .mp4 (or .mov / .m4v).
+    private static let animations: [String: CropAnim] = [
+        "dewdrop berry":   CropAnim(planting: "plantingdewdropberryseed.mp4", seedToSapling: "dewdropberryseedtosapling.mp4", saplingToTree: "dewdropsaplingtodewdroptree.mp4"),
+        "mossglow pear":   CropAnim(planting: "mossglowpearplantingseeed.mp4", seedToSapling: "mossglowpearseedtosapling.mp4", saplingToTree: "mossglowpearsaplingtotree.mp4"),
+        "ember fig":       CropAnim(planting: "emberfigseedplanting.gif", seedToSapling: "emberfigseedtosapling.gif", saplingToTree: "emberfigsaplingtotree.gif"),
+        "moonbloom plum":  CropAnim(planting: "moonbloomplumseedplanting.gif"),
+        "sunscale citrus": CropAnim(planting: "sunscalecitrusseed.gif", seedToSapling: "sunscale.gif", saplingToTree: "sunscalecitrussaplingtotree.gif"),
+        "phoenix flame":   CropAnim(planting: "pheonixflameplantingseed.gif", seedToSapling: "pheonixflameseedtosapling.gif", saplingToTree: "pheonixflamesaplingtotree.gif"),
+        "unicorn peach":   CropAnim(planting: "unicornpeachseedplanting.gif", seedToSapling: "unicornsseedtosapling.gif", saplingToTree: "unicornpearlsaplingtotree.gif"),
+        "mermaid pearl":   CropAnim(planting: "mermaidpearlseedplanting.gif", seedToSapling: "mermaidpearlseedtospaling.gif", saplingToTree: "mermaidpearlsaplingtotree.gif"),
+        "ruby crystal":    CropAnim(planting: "rubycrystal.gif", seedToSapling: "rubycrystalseedtoplant.gif", saplingToTree: "rubycrystalsaplingtotree.gif"),
+        "golden apple":    CropAnim(planting: "goldenappleseedplanting.gif", seedToSapling: "goldenappleseedtotree.gif", saplingToTree: "goldenapplesaplingtotree.gif"),
+        "aurora melon":    CropAnim(planting: "auroramelonseed.gif", seedToSapling: "auroramelonsaplingtoseed.gif", saplingToTree: "auroramelonsaplingtotree.gif"),
+        "celestial peach": CropAnim(planting: "celestialpeachplanting.gif", seedToSapling: "celestialpeachseedtosapling.gif", saplingToTree: "celestialpeachsaplingtotree.gif")
+    ]
 
-    static let crops: [Crop] = {
-        let n = cropNames.count
-        return cropNames.enumerated().map { i, name in
-            let t = n > 1 ? Double(i) / Double(n - 1) : 0
-            let raw = minPrice * pow(maxPrice / minPrice, t)
-            let step = pow(10.0, floor(log10(raw)) - 1)          // keep 2 digits, e.g. 4,800
-            let price = Int((raw / step).rounded() * step)
-            let grow = (minGrowSeconds * pow(maxGrowSeconds / minGrowSeconds, t)).rounded()
-            return Crop(name: name, price: price, growSeconds: max(1, grow), style: fruitDefs[i].style, art: pixelArt[name])
-        }
-    }()
+    static let crops: [Crop] = cropRows.enumerated().map { i, row in
+        Crop(name: row.name, price: row.price, growSeconds: row.grow, style: row.style,
+             art: pixelArt[row.name], anim: animations[row.name],
+             // 1.50x for the first crop, up to about 2.27x for the last
+             sellMultiplier: 1.5 + 0.07 * Double(i))
+    }
 
     // uniquingKeysWith so a duplicate name can never crash the app
     static let cropByName: [String: Crop] = {
-        return Dictionary(crops.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        Dictionary(crops.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
     }()
 
     // 7 sprinkler tiers. They speed up plants in the 3x3 area around them.
+    // Priced against what they save: a sprinkler covers up to 9 plots, so
+    // each tier costs roughly what its extra growth is worth on the crops
+    // you can afford at that point.
     static let sprinklers: [Sprinkler] = [
-        Sprinkler(tier: 1, name: "Tiny Sprinkler",     price: 500,         speed: 1.5, duration: 15 * 60, color: .green),
-        Sprinkler(tier: 2, name: "Super Sprinkler",    price: 5_000,       speed: 2, duration: 30 * 60, color: .blue),
-        Sprinkler(tier: 3, name: "Mega Sprinkler",     price: 50_000,      speed: 3, duration: 60 * 60, color: .purple),
-        Sprinkler(tier: 4, name: "Ultra Sprinkler",    price: 500_000,     speed: 5, duration: 2 * 3600, color: .orange),
-        Sprinkler(tier: 5, name: "Rainbow Sprinkler",  price: 5_000_000,   speed: 10, duration: 4 * 3600, color: .pink),
-        Sprinkler(tier: 6, name: "Galaxy Sprinkler",   price: 25_000_000,  speed: 16, duration: 8 * 3600, color: .indigo),
-        Sprinkler(tier: 7, name: "Celestial Sprinkler", price: 100_000_000, speed: 25, duration: 24 * 3600, color: .yellow)
+        Sprinkler(tier: 1, name: "Tiny Sprinkler",      price: 300,     speed: 1.5, duration: 15 * 60,  color: .green,   gif: "tinysprinkleranimation.gif"),
+        Sprinkler(tier: 2, name: "Super Sprinkler",     price: 1_500,   speed: 2,   duration: 30 * 60,  color: .blue,    gif: "supersprinkler.gif"),
+        Sprinkler(tier: 3, name: "Mega Sprinkler",      price: 6_000,   speed: 3,   duration: 60 * 60,  color: .purple,  gif: "megasprinkler.gif"),
+        Sprinkler(tier: 4, name: "Ultra Sprinkler",     price: 24_000,  speed: 4,   duration: 2 * 3600, color: .orange,  gif: "ultrasprinkler.gif"),
+        Sprinkler(tier: 5, name: "Rainbow Sprinkler",   price: 80_000,  speed: 5,   duration: 4 * 3600, color: .pink,    gif: "rainbowsprinkler.gif"),
+        // No GIF drawn yet for the top two: they reuse the Rainbow one, recoloured.
+        Sprinkler(tier: 6, name: "Galaxy Sprinkler",    price: 220_000, speed: 6,   duration: 8 * 3600, color: .indigo,  gif: "rainbowsprinkler.gif", hue: 150),
+        Sprinkler(tier: 7, name: "Celestial Sprinkler", price: 500_000, speed: 8,   duration: 12 * 3600, color: .yellow, gif: "rainbowsprinkler.gif", hue: 300)
     ]
 
     static func sprinkler(tier: Int) -> Sprinkler? {
@@ -127,6 +181,17 @@ enum Catalog {
     }
 
     // ---- Saves from before the garden rework ----
+
+    /// The 21 crop names used before the garden was cut down to the crops that
+    /// have artwork, cheapest first. Anything saved under a name that no longer
+    /// exists becomes the crop at the same price tier.
+    private static let previousCropNames: [String] = [
+        "dewdrop berry", "mossglow pear", "ember fig", "moonbloom plum", "frostmelon",
+        "sunscale citrus", "stormberry", "pixie apple", "dragon fruit", "phoenix flame",
+        "nova starfruit", "unicorn peach", "mermaid pearl", "ruby crystal", "nebula grape",
+        "golden apple", "ambrosia lotus", "void berry", "aurora melon", "yggdrasil fruit",
+        "celestial peach"
+    ]
 
     /// The crop names used before the garden got its mythical fruits, cheapest first.
     private static let legacyCropNames: [String] = [
@@ -145,15 +210,21 @@ enum Catalog {
     /// Names that are already current come back unchanged.
     static func currentCropName(for name: String) -> String {
         if cropByName[name] != nil { return name }
-        // The limited-edition pumpkins are gone; their plants become regular crops.
         switch name {
-        case "pumpkin", "ghostlight pumpkin": return "ember fig"
-        case "pumpkin t", "witchfire gourd": return "phoenix flame"
+        case "pumpkin", "ghostlight pumpkin", "gift berry", "starlight fruit": return "sunscale citrus"
+        case "pumpkin t", "witchfire gourd", "frosted pine cone", "cocoa bloom": return "phoenix flame"
         default: break
         }
+        if let old = previousCropNames.firstIndex(of: name) {
+            return nearestCrop(position: Double(old) / Double(previousCropNames.count - 1))
+        }
         guard let old = legacyCropNames.firstIndex(of: name) else { return name }
-        let position = Double(old) / Double(legacyCropNames.count - 1)
-        return cropNames[Int((position * Double(cropNames.count - 1)).rounded())]
+        return nearestCrop(position: Double(old) / Double(legacyCropNames.count - 1))
+    }
+
+    /// The crop that sits `position` (0 = cheapest, 1 = priciest) along the list.
+    private static func nearestCrop(position: Double) -> String {
+        cropNames[Int((position * Double(cropNames.count - 1)).rounded())]
     }
 
     /// Same, for an item id such as "seed:carrot" or "crop:carrot".
@@ -168,4 +239,14 @@ enum Catalog {
 func sprinklerDurationText(_ seconds: TimeInterval) -> String {
     let minutes = Int((seconds / 60).rounded())
     return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h"
+}
+
+/// Long times in a friendly way: "45s", "5m", "1h 30m", "1d 2h".
+func longTimeText(_ seconds: Double) -> String {
+    let t = max(0, Int(ceil(seconds)))
+    let d = t / 86_400, h = (t % 86_400) / 3_600, m = (t % 3_600) / 60, s = t % 60
+    if d > 0 { return h > 0 ? "\(d)d \(h)h" : "\(d)d" }
+    if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
+    if m > 0 { return (m < 10 && s > 0) ? "\(m)m \(s)s" : "\(m)m" }
+    return "\(s)s"
 }
