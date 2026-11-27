@@ -43,33 +43,45 @@ enum Season: String, CaseIterable {
 
     var backdropTop: Color {
         switch self {
-        case .rainy: Color(red: 0.10, green: 0.14, blue: 0.20)
-        case .sunny: Color(red: 0.20, green: 0.32, blue: 0.48)
-        case .snowy: Color(red: 0.16, green: 0.20, blue: 0.28)
+        case .rainy: Color.adaptive(light: UIColor(red: 0.84, green: 0.90, blue: 0.95, alpha: 1),
+                                    dark: UIColor(red: 0.10, green: 0.14, blue: 0.20, alpha: 1))
+        case .sunny: Color.adaptive(light: UIColor(red: 0.89, green: 0.95, blue: 1.00, alpha: 1),
+                                    dark: UIColor(red: 0.20, green: 0.32, blue: 0.48, alpha: 1))
+        case .snowy: Color.adaptive(light: UIColor(red: 0.92, green: 0.95, blue: 0.98, alpha: 1),
+                                    dark: UIColor(red: 0.16, green: 0.20, blue: 0.28, alpha: 1))
         }
     }
 
     var backdropBottom: Color {
         switch self {
-        case .rainy: Color(red: 0.06, green: 0.09, blue: 0.13)
-        case .sunny: Color(red: 0.10, green: 0.18, blue: 0.26)
-        case .snowy: Color(red: 0.09, green: 0.12, blue: 0.18)
+        case .rainy: Color.adaptive(light: UIColor(red: 0.95, green: 0.97, blue: 0.99, alpha: 1),
+                                    dark: UIColor(red: 0.06, green: 0.09, blue: 0.13, alpha: 1))
+        case .sunny: Color.adaptive(light: UIColor(red: 1.00, green: 0.96, blue: 0.88, alpha: 1),
+                                    dark: UIColor(red: 0.10, green: 0.18, blue: 0.26, alpha: 1))
+        case .snowy: Color.adaptive(light: UIColor(red: 0.97, green: 0.98, blue: 1.00, alpha: 1),
+                                    dark: UIColor(red: 0.09, green: 0.12, blue: 0.18, alpha: 1))
         }
     }
 
     var card: Color {
         switch self {
-        case .rainy: Color(red: 0.12, green: 0.17, blue: 0.23)
-        case .sunny: Color(red: 0.14, green: 0.22, blue: 0.30)
-        case .snowy: Color(red: 0.15, green: 0.19, blue: 0.26)
+        case .rainy: Color.adaptive(light: UIColor(red: 0.98, green: 0.99, blue: 1.00, alpha: 1),
+                                    dark: UIColor(red: 0.12, green: 0.17, blue: 0.23, alpha: 1))
+        case .sunny: Color.adaptive(light: UIColor(red: 1.00, green: 0.99, blue: 0.96, alpha: 1),
+                                    dark: UIColor(red: 0.14, green: 0.22, blue: 0.30, alpha: 1))
+        case .snowy: Color.adaptive(light: UIColor(red: 0.99, green: 0.99, blue: 1.00, alpha: 1),
+                                    dark: UIColor(red: 0.15, green: 0.19, blue: 0.26, alpha: 1))
         }
     }
 
     var accent: Color {
         switch self {
-        case .rainy: Color(red: 0.50, green: 0.72, blue: 0.95)
-        case .sunny: Color(red: 0.98, green: 0.80, blue: 0.40)
-        case .snowy: Color(red: 0.70, green: 0.88, blue: 1.0)
+        case .rainy: Color.adaptive(light: UIColor(red: 0.24, green: 0.50, blue: 0.77, alpha: 1),
+                                    dark: UIColor(red: 0.50, green: 0.72, blue: 0.95, alpha: 1))
+        case .sunny: Color.adaptive(light: UIColor(red: 0.79, green: 0.54, blue: 0.00, alpha: 1),
+                                    dark: UIColor(red: 0.98, green: 0.80, blue: 0.40, alpha: 1))
+        case .snowy: Color.adaptive(light: UIColor(red: 0.30, green: 0.55, blue: 0.79, alpha: 1),
+                                    dark: UIColor(red: 0.70, green: 0.88, blue: 1.00, alpha: 1))
         }
     }
 

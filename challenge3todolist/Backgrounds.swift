@@ -46,7 +46,7 @@ struct GardenTilesLayer: View {
             // The plants themselves, and nothing else
             ForEach(orderedKeys.filter { store.tiles[$0]?.seed != nil }, id: \.self) { key in
                 if let tile = store.tiles[key] {
-                    TileContent(tile: tile)
+                    TileContent(tile: tile, speed: store.speed(forKey: key))
                         .contentShape(Rectangle())
                         .position(center(key))
                         .onTapGesture { onTapTile?(key) }
@@ -114,12 +114,10 @@ struct SprinklerArea: View {
             RoundedRectangle(cornerRadius: 18)
                 .stroke(sprinkler.color.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
             VStack(spacing: 2) {
-                Image(systemName: "sprinkler.and.droplets.fill")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.45), radius: 2)
-                    .padding(8)
-                    .background(Circle().fill(sprinkler.color))
+                // Your sprinkler animation (tiers without their own GIF are recoloured)
+                AnimatedSprite(file: sprinkler.gif, loops: true)
+                    .hueRotation(.degrees(sprinkler.hue))
+                    .frame(width: Theme.tileSize * 0.8, height: Theme.tileSize * 0.8)
 
                 if let timeLeft {
                     Text(shortTimeText(timeLeft))

@@ -101,12 +101,10 @@ struct ItemIcon: View {
         let crop = Catalog.cropByName[info.name]
         ZStack {
             if info.kind == "gear", let tier = Int(info.name), let sp = Catalog.sprinkler(tier: tier) {
-                Circle().fill(sp.color.opacity(0.35))
-                Image(systemName: "sprinkler.and.droplets.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundStyle(sp.color)
-                    .padding(size * 0.22)
+                // Your sprinkler animation (tiers without their own GIF are recoloured)
+                AnimatedSprite(file: sp.gif, loops: true)
+                    .hueRotation(.degrees(sp.hue))
+                    .frame(width: size, height: size)
             } else if info.kind == "seed", let crop {
                 // Seeds have their own picture, never the fruit's
                 CropSeedView(crop: crop, size: size)

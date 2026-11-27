@@ -18,6 +18,8 @@ struct HomeScreen: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     // False until the first-time walkthrough has been shown (or skipped).
     @AppStorage("hasSeenTutorial") private var hasSeenTutorial = false
+    // Light / Dark / System, applied at the root and saved between launches.
+    @AppStorage("appAppearance") private var appearance: AppAppearance = .system
 
     // The study log drives both the progress bar and the streak.
     @ObservedObject private var log = StudyLogStore.shared
@@ -54,8 +56,8 @@ struct HomeScreen: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: hasCompletedOnboarding)
-        // The whole app uses the moody garden look, which suits dark mode
-        .preferredColorScheme(.dark)
+        // Light, Dark or the system setting, chosen from the Home card.
+        .preferredColorScheme(appearance.colorScheme)
         // Plants keep growing while the app is in the background or closed:
         // catch up when we come back, and save when we leave.
         .onChange(of: scenePhase) { _, phase in
@@ -208,12 +210,13 @@ struct HomeScreen: View {
                 }
                 Spacer(minLength: 8)
                 streakChip
+                appearanceMenu
             }
 
             // Weekly progress
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.14))
+                    Capsule().fill(Theme.track)
                     Capsule()
                         .fill(Theme.good)
                         // a small sliver shows as soon as any time is studied
@@ -253,9 +256,29 @@ struct HomeScreen: View {
         .foregroundStyle(streak > 0 ? Color.orange : Theme.subtext)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Capsule().fill(streak > 0 ? Color.orange.opacity(0.16) : Color.white.opacity(0.08)))
+        .background(Capsule().fill(streak > 0 ? Color.orange.opacity(0.16) : Theme.chip))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(streak) day study streak")
+    }
+
+    /// Light / Dark / System picker. The root applies the choice to every screen.
+    private var appearanceMenu: some View {
+        Menu {
+            Picker("Appearance", selection: $appearance) {
+                ForEach(AppAppearance.allCases) { option in
+                    Label(option.label, systemImage: option.symbol)
+                        .tag(option)
+                }
+            }
+        } label: {
+            Image(systemName: appearance.symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.text)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Theme.chip))
+        }
+        .accessibilityLabel("Appearance")
+        .accessibilityValue(appearance.label)
     }
 
     // MARK: - Opening and closing the garden

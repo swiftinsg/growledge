@@ -320,17 +320,69 @@ struct Game: View {
     }
 }
 
-// What is drawn on a planted plot: just the plant, nothing around it.
+// What is drawn on a planted plot: the plant, using your GIF animations while
+// it grows and the pixel pictures for each stage. Just the plant, nothing around it.
 struct TileContent: View {
     let tile: Tile
+    /// How many times faster than normal this plot is growing (sprinklers).
+    var speed: Double = 1
+
+    /// Brief grow-pop whenever the plant reaches its next stage.
+    @State private var pop = false
+
+    private func stage(_ progress: Double) -> Int {
+        progress >= 1 ? 2 : (progress < 0.12 ? 0 : 1)
+    }
+
+    /// Your GIF for the current part of the growth, and how far through it we are.
+    /// planting: 0 - 12%, seed to sapling: 12 - 50%, sapling to tree: 50 - 100%.
+    private func growth(_ crop: Crop, _ progress: Double) -> (file: String, fraction: Double, scale: CGFloat)? {
+        var file: String?
+        var fraction = 0.0
+        var scale: CGFloat = 1.0
+        if progress < 0.12 {
+            file = crop.anim?.planting
+            fraction = progress / 0.12
+            scale = 0.9
+        } else if progress < 0.5 {
+            file = crop.anim?.seedToSapling
+            fraction = (progress - 0.12) / 0.38
+            scale = 1.0
+        } else if progress < 1 {
+            file = crop.anim?.saplingToTree
+            fraction = (progress - 0.5) / 0.5
+            scale = 1.0 + (PlantStageView.treeScale - 1.0) * CGFloat(fraction)
+        }
+        guard let file, AnimationFiles.isGIF(file), GIFCache.shared.clip(named: file) != nil else { return nil }
+        return (file, fraction, scale)
+    }
 
     var body: some View {
         if let seed = tile.seed, let crop = Catalog.cropByName[seed] {
-            PlantStageView(crop: crop,
-                           progress: min(tile.progress / crop.growSeconds, 1),
-                           size: Theme.tileSize)
-                .animation(.easeOut(duration: 0.4), value: tile.progress >= crop.growSeconds)
+            let progress = min(tile.progress / max(crop.growSeconds, 1), 1)
+            let current = stage(progress)
+            ZStack(alignment: .bottom) {
+                if let g = growth(crop, progress) {
+                    // Your GIF, played as slowly as the plant grows
+                    GrowthSprite(file: g.file, fraction: g.fraction)
+                        .frame(width: Theme.tileSize * g.scale, height: Theme.tileSize * g.scale)
+                } else {
+                    // No GIF for this stage: use the pictures we have
+                    PlantStageView(crop: crop, progress: progress, size: Theme.tileSize)
+                }
+            }
+            .frame(width: Theme.tileSize, height: Theme.tileSize, alignment: .bottom)
+            .scaleEffect(pop ? 1.1 : 1, anchor: .bottom)
+            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: pop)
+            .onChange(of: current) { old, new in
+                if new > old { popOnce() }
+            }
         }
+    }
+
+    private func popOnce() {
+        pop = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { pop = false }
     }
 }
 

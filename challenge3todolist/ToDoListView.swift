@@ -172,7 +172,7 @@ private extension View {
     func rowStyle() -> some View {
         self
             .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-            .listRowSeparatorTint(.white.opacity(0.15))
+            .listRowSeparatorTint(Theme.panelBorder)
     }
 }
 

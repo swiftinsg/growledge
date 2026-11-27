@@ -214,6 +214,18 @@ struct CropSeedView: View {
                 PixelImage(name: name, size: size * 0.78)
             }
             .frame(width: size, height: size)
+        } else if let fruit = crop.art?.fruit {
+            // No seed picture yet: a little seed pouch with the fruit it grows.
+            ZStack {
+                Circle().fill(Theme.card)
+                Circle().stroke(Theme.panelBorder, lineWidth: max(1.5, size * 0.04))
+                PixelImage(name: fruit, size: size * 0.58)
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: size * 0.2))
+                    .foregroundStyle(Theme.good)
+                    .offset(x: size * 0.28, y: size * 0.28)
+            }
+            .frame(width: size, height: size)
         } else {
             SeedPacketView(style: crop.style, size: size)
         }
@@ -420,6 +432,9 @@ struct PlantStageView: View {
         Group {
             if let name = crop.art?.seed {
                 PixelImage(name: name, size: size * 0.34)
+            } else if let fruit = crop.art?.fruit {
+                PixelImage(name: fruit, size: size * 0.26)
+                    .saturation(0.6)
             } else {
                 TeardropShape()
                     .fill(style.primary)
